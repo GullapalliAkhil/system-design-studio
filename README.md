@@ -2,6 +2,8 @@
 
 **A template-first system design canvas. Stop memorizing architectures — start from one.**
 
+**▶ [Try it live](https://gullapalliakhil.github.io/system-design-studio/)**
+
 Most system design practice starts with a blank page and a list of components you're
 supposed to have memorized. This flips that around: you drop in real components that
 already carry the two or three things you'd actually be expected to *say* about them in
@@ -89,6 +91,18 @@ npm run preview  # serve the build on :4173
 
 Requires Node 18+. React 18, Vite 5, and two self-hosted Fontsource families are the
 only dependencies — nothing is fetched at runtime.
+
+## Deploying
+
+Pushing to `main` builds and publishes to GitHub Pages via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Nothing to run by hand.
+
+`vite.config.js` sets `base: "./"`, so every asset URL is relative and the same build
+works under `/<repo>/` on Pages, on a custom domain, and straight from `file://`.
+
+There is no backend. A design autosaves to `localStorage`, which means it is per-browser
+and per-device: your work survives a refresh, but it does not follow you to another
+machine and nothing is shared between visitors.
 
 ## Layout
 
