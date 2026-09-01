@@ -33,39 +33,77 @@ textarea {
   color: inherit;
 }
 
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface3);
+  border: 3px solid var(--surface);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--textFaint);
+}
+
 /* ── Shell ─────────────────────────────────────────── */
 .app {
   display: grid;
-  grid-template-columns: 232px 1fr 288px;
-  grid-template-rows: 48px 1fr;
+  grid-template-columns: 236px 1fr 296px;
+  grid-template-rows: 52px 1fr;
   grid-template-areas:
     "bar bar bar"
     "palette canvas inspector";
   height: 100%;
+  background: var(--canvas);
 }
 
 .topbar {
   grid-area: bar;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: 7px;
+  padding: 0 14px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--borderMuted);
+}
+
+/* Hairline of light under the bar, brightest in the middle. */
+.topbar::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 45%, transparent),
+    color-mix(in srgb, var(--purple) 35%, transparent),
+    transparent
+  );
 }
 
 .brand {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin-right: 6px;
+  align-items: baseline;
+  gap: 7px;
+  margin-right: 4px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  background: linear-gradient(92deg, var(--accent), var(--cyan) 55%, var(--purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .brand small {
   color: var(--textFaint);
   font-weight: 400;
+  letter-spacing: 0;
+  -webkit-text-fill-color: var(--textFaint);
 }
 
 .spacer {
@@ -74,9 +112,9 @@ textarea {
 
 .divider {
   width: 1px;
-  height: 22px;
+  height: 20px;
   background: var(--border);
-  margin: 0 2px;
+  margin: 0 3px;
 }
 
 /* ── Buttons ───────────────────────────────────────── */
@@ -85,21 +123,25 @@ textarea {
   align-items: center;
   gap: 6px;
   height: 30px;
-  padding: 0 10px;
+  padding: 0 11px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--surface2);
-  color: var(--text);
+  color: var(--textMuted);
   white-space: nowrap;
+  transition: color 0.14s, border-color 0.14s, background 0.14s, box-shadow 0.14s;
 }
 
 .btn:hover:not(:disabled) {
+  color: var(--text);
   background: var(--surface3);
-  border-color: var(--textFaint);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 16px -4px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -107,17 +149,22 @@ textarea {
   width: 30px;
   padding: 0;
   justify-content: center;
+  font-size: 14px;
 }
 
 .btn.active {
-  background: var(--accentSubtle);
-  border-color: var(--accent);
   color: var(--accent);
+  background: var(--accentSubtle);
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 0 20px -3px color-mix(in srgb, var(--accent) 75%, transparent),
+    inset 0 0 14px -8px var(--accent);
 }
 
 .btn.danger:hover:not(:disabled) {
-  border-color: var(--red);
   color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 55%, transparent);
+  box-shadow: 0 0 18px -4px color-mix(in srgb, var(--red) 65%, transparent);
 }
 
 /* ── Side panels ───────────────────────────────────── */
@@ -129,50 +176,57 @@ textarea {
 
 .panel.left {
   grid-area: palette;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--borderMuted);
 }
 
 .panel.right {
   grid-area: inspector;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--borderMuted);
 }
 
 .panel-head {
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 10px;
+  padding: 11px;
   background: var(--surface);
   border-bottom: 1px solid var(--borderMuted);
 }
 
 .search {
   width: 100%;
-  height: 30px;
-  padding: 0 9px;
+  height: 32px;
+  padding: 0 10px;
   background: var(--canvas);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   outline: none;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.search::placeholder {
+  color: var(--textFaint);
 }
 
 .search:focus {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),
+    0 0 20px -6px color-mix(in srgb, var(--accent) 80%, transparent);
 }
 
 .section {
   border-bottom: 1px solid var(--borderMuted);
-  padding: 8px 10px 12px;
+  padding: 10px 11px 14px;
 }
 
 .section h3 {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 2px 0 8px;
+  gap: 7px;
+  margin: 2px 0 9px;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--textMuted);
 }
@@ -182,39 +236,50 @@ textarea {
   height: 7px;
   border-radius: 50%;
   flex: none;
+  /* Colour comes from the category; the glow follows it. */
+  box-shadow: 0 0 9px 1px currentColor;
 }
 
 /* ── Component palette ─────────────────────────────── */
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  gap: 5px;
 }
 
 .cell {
+  --tint: var(--accent);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 7px 2px 5px;
+  gap: 4px;
+  padding: 8px 3px 6px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 9px;
   text-align: center;
+  transition: background 0.14s, border-color 0.14s, box-shadow 0.14s, transform 0.14s;
 }
 
 .cell:hover {
   background: var(--surface2);
-  border-color: var(--border);
+  border-color: color-mix(in srgb, var(--tint) 45%, transparent);
+  box-shadow: 0 0 18px -6px var(--tint), inset 0 0 20px -14px var(--tint);
+  transform: translateY(-1px);
+}
+
+.cell:active {
+  transform: translateY(0);
 }
 
 .cell span {
   font-size: 9px;
-  line-height: 1.2;
-  color: var(--textMuted);
+  line-height: 1.25;
+  color: var(--textFaint);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  transition: color 0.14s;
 }
 
 .cell:hover span {
@@ -222,7 +287,7 @@ textarea {
 }
 
 .empty {
-  padding: 24px 10px;
+  padding: 26px 12px;
   color: var(--textFaint);
   text-align: center;
 }
@@ -248,141 +313,172 @@ textarea {
 .stage.tool-pan svg {
   cursor: grab;
 }
-.stage.tool-edge svg {
-  cursor: crosshair;
+.stage.tool-pan svg:active {
+  cursor: grabbing;
 }
-.stage.tool-text svg {
-  cursor: text;
-}
+.stage.tool-edge svg,
 .stage.tool-rect svg,
 .stage.tool-ellipse svg,
 .stage.tool-pen svg {
   cursor: crosshair;
 }
+.stage.tool-text svg {
+  cursor: text;
+}
 
+/* Floating glass controls */
 .hud {
   position: absolute;
-  left: 10px;
-  bottom: 10px;
+  left: 12px;
+  bottom: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 7px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--surface2) 72%, transparent);
   border: 1px solid var(--border);
-  border-radius: 7px;
-  backdrop-filter: blur(6px);
-}
-
-.hint-bar {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  max-width: min(560px, calc(100% - 220px));
-  padding: 7px 12px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--textMuted);
-  text-align: center;
-  backdrop-filter: blur(6px);
-  pointer-events: none;
+  border-radius: 11px;
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 8px 30px -10px #000, 0 0 0 1px #0006;
 }
 
 .zoom-label {
-  min-width: 42px;
+  min-width: 44px;
   text-align: center;
   color: var(--textMuted);
   font-variant-numeric: tabular-nums;
 }
 
+.hint-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100% - 240px));
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--surface2) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 10px;
+  color: var(--textMuted);
+  text-align: center;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 0 26px -10px var(--accent);
+  pointer-events: none;
+}
+
+.hint-bar b {
+  color: var(--accent);
+}
+
 /* ── Inspector ─────────────────────────────────────── */
 .field {
-  margin-bottom: 10px;
+  margin-bottom: 11px;
 }
 
 .field label {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--textMuted);
+  color: var(--textFaint);
 }
 
 .field input[type="text"],
 .field textarea {
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 9px;
   background: var(--canvas);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   outline: none;
   resize: vertical;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.field input[type="text"]::placeholder,
+.field textarea::placeholder {
+  color: var(--textFaint);
 }
 
 .field input[type="text"]:focus,
 .field textarea:focus {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
 }
 
 .hint {
-  padding: 8px 10px;
-  background: var(--accentSubtle);
+  margin: 0;
+  padding: 10px 12px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent);
   border-left: 2px solid var(--accent);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
   color: var(--text);
+  box-shadow: -6px 0 20px -12px var(--accent);
 }
 
 .swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 6px;
 }
 
 .swatch {
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
+  width: 21px;
+  height: 21px;
+  border-radius: 6px;
   border: 2px solid transparent;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+  box-shadow: 0 0 12px -1px currentColor;
 }
 
 .swatch.on {
   border-color: var(--text);
+  box-shadow: 0 0 14px -2px currentColor;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 5px;
 }
 
 .chip {
-  padding: 3px 8px;
+  padding: 4px 9px;
   border: 1px dashed var(--border);
   border-radius: 999px;
   font-size: 11px;
-  color: var(--textMuted);
+  color: var(--textFaint);
+  transition: color 0.14s, border-color 0.14s, box-shadow 0.14s;
 }
 
 .chip:hover {
   border-style: solid;
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
   color: var(--accent);
+  box-shadow: 0 0 14px -4px var(--accent);
 }
 
 .tasks {
   list-style: none;
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   padding: 0;
 }
 
 .tasks li {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 7px;
   padding: 3px 0;
 }
 
@@ -402,17 +498,19 @@ textarea {
 
 .tasks .x {
   color: var(--textFaint);
-  padding: 0 2px;
+  padding: 0 3px;
+  line-height: 1;
 }
 
 .tasks .x:hover {
   color: var(--red);
+  text-shadow: 0 0 10px var(--red);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 
 .toggle {
@@ -421,6 +519,7 @@ textarea {
   gap: 6px;
   color: var(--textMuted);
   cursor: pointer;
+  user-select: none;
 }
 
 .toggle input {
@@ -430,4 +529,176 @@ textarea {
 .meta {
   color: var(--textFaint);
   font-size: 11px;
+}
+
+.meta b {
+  color: var(--textMuted);
+}
+
+/* ── Left-panel tabs ───────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 9px;
+  padding: 3px;
+  background: var(--canvas);
+  border: 1px solid var(--borderMuted);
+  border-radius: 9px;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--textFaint);
+  transition: color 0.14s, background 0.14s, box-shadow 0.14s;
+}
+
+.tab:hover {
+  color: var(--textMuted);
+}
+
+.tab.on {
+  color: var(--accent);
+  background: var(--accentSubtle);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
+    0 0 16px -6px var(--accent);
+}
+
+.badge {
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--surface3);
+  color: var(--textMuted);
+  font-size: 9px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge.full {
+  background: color-mix(in srgb, var(--green) 22%, transparent);
+  color: var(--green);
+}
+
+/* ── Checklists ────────────────────────────────────── */
+.count {
+  margin-left: auto;
+  color: var(--textFaint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.progress {
+  height: 3px;
+  margin-bottom: 9px;
+  border-radius: 99px;
+  background: var(--surface3);
+  overflow: hidden;
+}
+
+.progress i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  box-shadow: 0 0 12px -2px var(--green);
+  transition: width 0.25s ease;
+}
+
+.tasks span {
+  cursor: text;
+}
+
+.task-edit {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 6px;
+  background: var(--canvas);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: 6px;
+  outline: none;
+}
+
+.add-row {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+
+.add-row input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.add-row input::placeholder {
+  color: var(--textFaint);
+}
+
+.add-row input:focus {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.link {
+  padding: 0;
+  color: var(--textFaint);
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--red);
+}
+
+/* ── Shortcut list ─────────────────────────────────── */
+.keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  color: var(--textMuted);
+}
+
+.keys li {
+  padding: 3px 0;
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font: 600 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}
+
+/* ── In-canvas text editor ─────────────────────────── */
+.canvas-input {
+  width: 100%;
+  height: 100%;
+  padding: 1px 5px;
+  background: color-mix(in srgb, var(--surface2) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  border-radius: 7px;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  line-height: 1.25;
+  box-shadow: 0 0 24px -6px var(--accent);
 }

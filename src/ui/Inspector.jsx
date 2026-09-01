@@ -1,6 +1,5 @@
-import { FR_CHIPS, NFR_CHIPS, TYPE_INDEX } from "../catalog.js";
+import { TYPE_INDEX } from "../catalog.js";
 import { PALETTE } from "../theme.js";
-import { task } from "../lib/doc.js";
 
 function Swatches({ value, onPick }) {
   return (
@@ -9,7 +8,7 @@ function Swatches({ value, onPick }) {
         <button
           key={c}
           className={`swatch${value === c ? " on" : ""}`}
-          style={{ background: c }}
+          style={{ background: c, color: c }}
           title={c}
           onClick={() => onPick(c)}
         />
@@ -18,101 +17,45 @@ function Swatches({ value, onPick }) {
   );
 }
 
-/* One editable requirement list (functional or non-functional). */
-function Requirements({ label, listKey, list, chips, update }) {
-  const toggle = (id) =>
-    update((d) => ({ [listKey]: d[listKey].map((t) => (t.id === id ? { ...t, done: !t.done } : t)) }));
-  const remove = (id) => update((d) => ({ [listKey]: d[listKey].filter((t) => t.id !== id) }));
-  const add = (text) => update((d) => ({ [listKey]: [...d[listKey], task(text)] }));
-
-  const taken = new Set(list.map((t) => t.text));
-
-  return (
-    <div className="section">
-      <h3>{label}</h3>
-      {list.length ? (
-        <ul className="tasks">
-          {list.map((t) => (
-            <li key={t.id}>
-              <input type="checkbox" checked={t.done} onChange={() => toggle(t.id)} />
-              <span className={t.done ? "done" : ""}>{t.text}</span>
-              <button className="x" title="Remove" onClick={() => remove(t.id)}>
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="chips">
-        {chips
-          .filter((c) => !taken.has(c))
-          .map((c) => (
-            <button key={c} className="chip" onClick={() => add(c)}>
-              + {c}
-            </button>
-          ))}
-      </div>
-    </div>
-  );
-}
-
 export default function Inspector({ doc, update, sel, onDelete }) {
-  /* ── Nothing selected: the design brief ───────────── */
+  /* ── Nothing selected ─────────────────────────────── */
   if (!sel) {
     return (
       <aside className="panel right">
         <div className="section">
-          <h3>Design</h3>
-          <div className="field">
-            <label>Title</label>
-            <input
-              type="text"
-              placeholder="e.g. Design Twitter"
-              value={doc.title}
-              onChange={(e) => update({ title: e.target.value }, false)}
-            />
-          </div>
-          <div className="field">
-            <label>Brief</label>
-            <textarea
-              rows="4"
-              placeholder="Scope, scale, constraints…"
-              value={doc.brief}
-              onChange={(e) => update({ brief: e.target.value }, false)}
-            />
-          </div>
-          <p className="meta">
-            {doc.nodes.length} components · {doc.edges.length} connections
+          <h3>{doc.title || "Untitled design"}</h3>
+          {doc.brief ? <p className="meta">{doc.brief}</p> : null}
+          <p className="meta" style={{ marginTop: 10 }}>
+            <b>{doc.nodes.length}</b> components · <b>{doc.edges.length}</b> connections ·{" "}
+            <b>{doc.texts.length}</b> notes
           </p>
         </div>
 
-        <Requirements
-          label="Functional requirements"
-          listKey="fr"
-          list={doc.fr}
-          chips={FR_CHIPS}
-          update={update}
-        />
-        <Requirements
-          label="Non-functional requirements"
-          listKey="nfr"
-          list={doc.nfr}
-          chips={NFR_CHIPS}
-          update={update}
-        />
-
         <div className="section">
-          <h3>Tips</h3>
-          <p className="meta">
-            Click a component to drop it on the canvas. Press <b>E</b> then click two
-            components to connect them. Scroll to zoom, drag empty canvas to pan.
+          <h3>Getting around</h3>
+          <ul className="keys">
+            <li>
+              <kbd>Double-click</kbd> anywhere to write
+            </li>
+            <li>
+              <kbd>E</kbd> then two components to connect
+            </li>
+            <li>
+              <kbd>Scroll</kbd> zoom · <kbd>Drag</kbd> pan
+            </li>
+            <li>
+              <kbd>⌘Z</kbd> undo · <kbd>Del</kbd> remove
+            </li>
+          </ul>
+          <p className="meta" style={{ marginTop: 10 }}>
+            Select anything on the canvas to edit it here.
           </p>
         </div>
       </aside>
     );
   }
 
-  /* ── Something selected: its properties ───────────── */
+  /* ── Something selected ───────────────────────────── */
   const { kind, id } = sel;
   const listKey = `${kind}s`;
   const item = (doc[listKey] || []).find((x) => x.id === id);
@@ -200,7 +143,7 @@ export default function Inspector({ doc, update, sel, onDelete }) {
         <div className="section">
           <h3>What to say about it</h3>
           <p className="hint">{meta.hint}</p>
-          <p className="meta" style={{ marginTop: 8 }}>
+          <p className="meta" style={{ marginTop: 9 }}>
             {meta.category}
             {meta.brand ? " · brand" : " · concept"}
           </p>

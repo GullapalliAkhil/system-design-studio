@@ -37,6 +37,7 @@ export default function Canvas({
   const drag = useRef(null);
   const [draft, setDraft] = useState(null);
   const [pending, setPending] = useState(null); // node id awaiting an edge target
+  const [editing, setEditing] = useState(null); // text id currently being typed into
 
   useEffect(() => {
     if (tool !== "edge") setPending(null);
@@ -69,6 +70,34 @@ export default function Canvas({
     };
   };
 
+  /* ── Free text ───────────────────────────────────── */
+  /* Text goes wherever you want it: the text tool, or a double-click on empty
+     canvas. Either way it lands empty and immediately in edit mode. */
+  function createTextAt(p) {
+    const item = {
+      id: uid("t"),
+      x: snapTo(p.x, snap),
+      y: snapTo(p.y, snap),
+      text: "",
+      size: 16,
+      color: T.text,
+    };
+    update((d) => ({ texts: [...d.texts, item] }));
+    setSel({ kind: "text", id: item.id });
+    setEditing(item.id);
+    setTool("select");
+  }
+
+  function stopEditing() {
+    const t = doc.texts.find((x) => x.id === editing);
+    // An empty label renders as nothing and can never be clicked again.
+    if (t && !t.text.trim()) {
+      update((d) => ({ texts: d.texts.filter((x) => x.id !== t.id) }), false);
+      setSel(null);
+    }
+    setEditing(null);
+  }
+
   /* ── Background gestures ─────────────────────────── */
   function onBackgroundDown(e) {
     if (e.button === 1 || tool === "pan" || e.altKey) {
@@ -86,18 +115,7 @@ export default function Canvas({
       drag.current = { kind: "pen" };
       setDraft({ kind: "pen", points: [[p.x, p.y]], color: T.accent, width: 2 });
     } else if (tool === "text") {
-      const p = toWorld(e);
-      const item = {
-        id: uid("t"),
-        x: snapTo(p.x, snap),
-        y: snapTo(p.y, snap),
-        text: "Double-click to edit",
-        size: 16,
-        color: T.text,
-      };
-      update((d) => ({ texts: [...d.texts, item] }));
-      setSel({ kind: "text", id: item.id });
-      setTool("select");
+      createTextAt(toWorld(e));
       return;
     }
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -210,6 +228,7 @@ export default function Canvas({
 
   const nodeById = Object.fromEntries(doc.nodes.map((n) => [n.id, n]));
   const isSel = (kind, id) => sel && sel.kind === kind && sel.id === id;
+  const editingText = doc.texts.find((t) => t.id === editing) || null;
 
   return (
     <svg
@@ -220,8 +239,16 @@ export default function Canvas({
       onPointerCancel={onUp}
     >
       <defs>
-        <pattern id="grid" width={GRID * 4} height={GRID * 4} patternUnits="userSpaceOnUse">
-          <path d={`M${GRID * 4} 0 L0 0 0 ${GRID * 4}`} fill="none" stroke={T.grid} strokeWidth="1" />
+        {/* Dots read better than rules on true black. Sized in screen space and
+            offset by the pan so the field tracks the content as you zoom. */}
+        <pattern
+          id="grid"
+          width={GRID * 4 * view.k}
+          height={GRID * 4 * view.k}
+          patternUnits="userSpaceOnUse"
+          patternTransform={`translate(${view.x},${view.y})`}
+        >
+          <circle cx="1" cy="1" r="1" fill={T.grid} />
         </pattern>
         {MARKERS.map((m) => (
           <marker
@@ -239,14 +266,15 @@ export default function Canvas({
         ))}
       </defs>
 
-      {/* Grid is drawn in screen space, offset to follow the pan. */}
+      {/* Dot field — the pattern itself carries the pan offset.
+          Double-clicking bare canvas is the fastest way to start writing. */}
       <rect
         x="0"
         y="0"
         width="100%"
         height="100%"
         fill="url(#grid)"
-        style={{ transform: `translate(${view.x % (GRID * 4 * view.k)}px, ${view.y % (GRID * 4 * view.k)}px)` }}
+        onDoubleClick={(e) => createTextAt(toWorld(e))}
       />
 
       <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
@@ -326,6 +354,7 @@ export default function Canvas({
                 strokeWidth={on ? 2.5 : 1.8}
                 strokeDasharray={e.dashed ? "6 4" : undefined}
                 markerEnd={`url(#${markerFor(e.color)})`}
+                style={{ filter: `drop-shadow(0 0 ${on ? 7 : 4}px ${color}${on ? "aa" : "66"})` }}
               />
               {e.label ? (
                 <>
@@ -365,11 +394,27 @@ export default function Canvas({
                 y={n.y}
                 width={n.w}
                 height={n.h}
-                rx="10"
-                fill={T.surface}
+                rx="12"
+                fill={T.surface2}
                 stroke={on || armed ? T.accent : color}
                 strokeWidth={on || armed ? 2 : 1.4}
                 strokeDasharray={armed ? "5 3" : undefined}
+                style={{
+                  filter: `drop-shadow(0 0 ${on || armed ? 14 : 7}px ${
+                    on || armed ? T.accent : color
+                  }${on || armed ? "cc" : "55"})`,
+                }}
+              />
+              {/* Faint wash of the component's own colour so it reads as lit. */}
+              <rect
+                x={n.x}
+                y={n.y}
+                width={n.w}
+                height={n.h}
+                rx="12"
+                fill={color}
+                opacity="0.07"
+                pointerEvents="none"
               />
               <Icon type={n.type} color={color} x={n.x + (n.w - 36) / 2} y={n.y + 11} size={36} />
               {lines.map((ln, i) => (
@@ -395,12 +440,60 @@ export default function Canvas({
             y={t.y}
             fontSize={t.size}
             fill={isSel("text", t.id) ? T.accent : t.color}
-            style={{ cursor: "move" }}
+            style={{
+              cursor: "move",
+              // Hidden while its editor is open so the two don't overlap.
+              visibility: editing === t.id ? "hidden" : "visible",
+              filter: `drop-shadow(0 0 6px ${t.color}55)`,
+            }}
             onPointerDown={(e) => onItemDown(e, "text", t)}
+            onDoubleClick={(ev) => {
+              ev.stopPropagation();
+              setEditing(t.id);
+            }}
           >
-            {t.text}
+            {/* <text> has no line breaks of its own. */}
+            {String(t.text).split("\n").map((line, i) => (
+              <tspan key={i} x={t.x} dy={i ? t.size * 1.25 : 0}>
+                {line}
+              </tspan>
+            ))}
           </text>
         ))}
+
+        {editingText ? (
+          <foreignObject
+            x={editingText.x - 7}
+            y={editingText.y - editingText.size}
+            width="320"
+            height="140"
+          >
+            <textarea
+              className="canvas-input"
+              autoFocus
+              style={{ fontSize: `${editingText.size}px`, color: editingText.color }}
+              value={editingText.text}
+              onChange={(ev) =>
+                update(
+                  (d) => ({
+                    texts: d.texts.map((x) => (x.id === editingText.id ? { ...x, text: ev.target.value } : x)),
+                  }),
+                  false
+                )
+              }
+              onBlur={stopEditing}
+              onKeyDown={(ev) => {
+                // Enter commits, Shift+Enter adds a line.
+                if (ev.key === "Escape" || (ev.key === "Enter" && !ev.shiftKey)) {
+                  ev.preventDefault();
+                  ev.currentTarget.blur();
+                }
+                ev.stopPropagation();
+              }}
+              onPointerDown={(ev) => ev.stopPropagation()}
+            />
+          </foreignObject>
+        ) : null}
 
         {/* In-flight draft */}
         {draft && draft.kind === "rect" ? (

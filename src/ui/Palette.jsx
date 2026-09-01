@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CATEGORIES, TYPE_INDEX } from "../catalog.js";
 import { Icon } from "../icons.jsx";
 
@@ -18,9 +18,8 @@ function entriesFor(cat) {
   return [...byType.values()];
 }
 
-export default function Palette({ onAdd }) {
-  const [q, setQ] = useState("");
-  const needle = q.trim().toLowerCase();
+export default function Palette({ query, onAdd }) {
+  const needle = query.trim().toLowerCase();
 
   const groups = useMemo(
     () =>
@@ -34,42 +33,28 @@ export default function Palette({ onAdd }) {
     [needle]
   );
 
-  const total = groups.reduce((n, g) => n + g.entries.length, 0);
+  if (!groups.length) return <div className="empty">No component matches “{query}”.</div>;
 
-  return (
-    <aside className="panel left">
-      <div className="panel-head">
-        <input
-          className="search"
-          placeholder="Search components…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+  return groups.map((g) => (
+    <div className="section" key={g.name}>
+      <h3>
+        <i className="dot" style={{ color: g.color, background: g.color }} />
+        {g.name}
+      </h3>
+      <div className="grid">
+        {g.entries.map((e) => (
+          <button
+            key={e.type}
+            className="cell"
+            style={{ "--tint": e.color }}
+            title={TYPE_INDEX[e.type]?.hint || e.name}
+            onClick={() => onAdd(e.type)}
+          >
+            <Icon type={e.type} color={e.color} size={26} />
+            <span>{e.name}</span>
+          </button>
+        ))}
       </div>
-
-      {total === 0 ? <div className="empty">No component matches “{q}”.</div> : null}
-
-      {groups.map((g) => (
-        <div className="section" key={g.name}>
-          <h3>
-            <i className="dot" style={{ background: g.color }} />
-            {g.name}
-          </h3>
-          <div className="grid">
-            {g.entries.map((e) => (
-              <button
-                key={e.type}
-                className="cell"
-                title={TYPE_INDEX[e.type]?.hint || e.name}
-                onClick={() => onAdd(e.type)}
-              >
-                <Icon type={e.type} color={e.color} size={26} />
-                <span>{e.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </aside>
-  );
+    </div>
+  ));
 }

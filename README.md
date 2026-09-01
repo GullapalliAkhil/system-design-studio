@@ -26,17 +26,31 @@ You read them off the canvas instead of memorizing them.
   Data Stores, Caching, Messaging, Search & Analytics, Platform Services.
 - **28 brand logos** (Postgres, Redis, Kafka, S3, Kubernetes, Stripe, …) so you can go
   from "a cache" to "Redis" in one click.
-- **Requirement chips** — a starter set of functional (`FR_CHIPS`) and non-functional
-  (`NFR_CHIPS`) requirements: *p99 latency < 200ms*, *CAP → AP*, *Read-heavy (100:1)*.
-- **A canvas document model** with nodes, edges, free text, shapes, freehand drawings
-  and sticky notes — autosaved to `localStorage`, with undo/redo.
-- **GitHub-dark theming** from a single token file, shared by the SVG canvas and the
-  surrounding chrome.
+- **Requirement checklists** — functional and non-functional, as working to-do lists:
+  add your own, tick them off, rename, delete, clear completed. Seeded from a starter
+  set of chips (*p99 latency < 200ms*, *CAP → AP*, *Read-heavy (100:1)*) so you're never
+  staring at an empty list.
+- **Free text anywhere** — double-click bare canvas and type, right where you're
+  pointing. No text box to place first.
+- **A canvas document model** with nodes, edges, free text, shapes and freehand
+  drawings — autosaved to `localStorage`, with undo/redo.
+- **A pitch-black canvas with a radiant palette** — true `#000` ground, high-chroma
+  accents that glow against it, all from a single token file shared by the SVG canvas
+  and the surrounding chrome.
 
 ## Using it
 
-Click anything in the left palette to drop it on the canvas. Select it and the right
-panel shows its hint — plus an editable label, colour, and the category it came from.
+The left panel has two tabs. **Components** is the searchable palette — click anything
+to drop it on the canvas. **Requirements** is your design brief plus two checklists you
+actually work: type a requirement and hit <kbd>+</kbd>, click any task to rename it,
+tick it off, or delete it. A progress bar and a `done/total` badge track where you are.
+
+Select anything on the canvas and the right panel shows its hint — plus an editable
+label, colour, and the category it came from.
+
+**To write anywhere, just double-click empty canvas** and start typing. <kbd>Enter</kbd>
+commits, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line, and double-clicking existing
+text reopens it in place. Empty text is discarded rather than left invisible.
 
 | Key | Tool |
 | --- | --- |
@@ -78,9 +92,11 @@ src/
   logos.jsx         # real product logos (LOGOS map)
   theme.js          # design tokens (T) and the edge/shape PALETTE
   ui/
+    LeftPanel.jsx   # tab shell: Components | Requirements
     Palette.jsx     # searchable component picker
-    Canvas.jsx      # the SVG canvas: pan, zoom, drag, connect, draw
-    Inspector.jsx   # selection properties, design brief, requirement checklists
+    Requirements.jsx# design brief + the two requirement checklists
+    Canvas.jsx      # the SVG canvas: pan, zoom, drag, connect, draw, write
+    Inspector.jsx   # properties for the current selection
   lib/
     doc.js          # document model, localStorage persistence, useDoc() undo/redo
     geometry.js     # node/edge geometry, text wrapping, bounds, freehand smoothing

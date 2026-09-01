@@ -1,25 +1,30 @@
-/* GitHub dark ("Dark default") design tokens.
-   Kept in one place so the canvas SVG and the chrome stay in sync. */
+/* Pitch-black canvas with a radiant, high-chroma accent set — colours are
+   chosen to glow against true black rather than to sit quietly on grey.
+   Kept in one place so the canvas SVG and the chrome stay in sync;
+   main.jsx mirrors every key onto :root as a CSS custom property. */
 export const T = {
-  canvas: "#0d1117",
-  surface: "#161b22",
-  surface2: "#21262d",
-  surface3: "#282e36",
-  border: "#30363d",
-  borderMuted: "#21262d",
-  text: "#e6edf3",
-  textMuted: "#8b949e",
-  textFaint: "#6e7681",
-  accent: "#58a6ff",
-  accentSubtle: "#388bfd26",
-  green: "#3fb950",
-  red: "#f85149",
-  yellow: "#d29922",
-  purple: "#bc8cff",
-  orange: "#ff9a5b",
-  pink: "#f778ba",
-  cyan: "#39c5cf",
-  grid: "#1f2630",
+  canvas: "#000000",
+  surface: "#07080c",
+  surface2: "#0e1016",
+  surface3: "#171a23",
+  border: "#20242f",
+  borderMuted: "#12151c",
+  text: "#f4f7ff",
+  textMuted: "#98a3c0",
+  textFaint: "#606b88",
+
+  accent: "#3d9bff",
+  accentSubtle: "#3d9bff1f",
+
+  green: "#00f5a0",
+  red: "#ff4365",
+  yellow: "#ffd23f",
+  purple: "#b388ff",
+  orange: "#ff9f45",
+  pink: "#ff5fb0",
+  cyan: "#00e5ff",
+
+  grid: "#171b24",
 };
 
 /* Palette offered for edges, shapes and text. */

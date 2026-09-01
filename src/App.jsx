@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Palette from "./ui/Palette.jsx";
+import LeftPanel from "./ui/LeftPanel.jsx";
 import Canvas from "./ui/Canvas.jsx";
 import Inspector from "./ui/Inspector.jsx";
 import { TYPE_INDEX } from "./catalog.js";
@@ -225,7 +225,7 @@ export default function App() {
         />
       </header>
 
-      <Palette onAdd={addNode} />
+      <LeftPanel doc={doc} update={update} onAdd={addNode} />
 
       <div className={`stage tool-${tool}`}>
         <Canvas
@@ -261,10 +261,14 @@ export default function App() {
         </div>
 
         {tool === "edge" ? (
-          <div className="hint-bar">Click the source component, then the target. Esc to cancel.</div>
+          <div className="hint-bar">
+            Click the source component, then the target. <b>Esc</b> to cancel.
+          </div>
         ) : null}
-        {tool === "select" && !doc.nodes.length ? (
-          <div className="hint-bar">Pick a component from the left to start your design.</div>
+        {tool === "select" && !doc.nodes.length && !doc.texts.length ? (
+          <div className="hint-bar">
+            Pick a component from the left — or <b>double-click anywhere</b> to write.
+          </div>
         ) : null}
       </div>
 
