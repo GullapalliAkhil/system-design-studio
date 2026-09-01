@@ -33,11 +33,26 @@ You read them off the canvas instead of memorizing them.
 - **GitHub-dark theming** from a single token file, shared by the SVG canvas and the
   surrounding chrome.
 
-## Status
+## Using it
 
-⚠️ **Work in progress.** The catalog, icon/logo sets, theme and canvas primitives are in
-place; the React entry point (`src/main.jsx`) and the canvas UI that composes them are
-not in this repo yet, so `npm run dev` will not render an app as it currently stands.
+Click anything in the left palette to drop it on the canvas. Select it and the right
+panel shows its hint — plus an editable label, colour, and the category it came from.
+
+| Key | Tool |
+| --- | --- |
+| `V` | Select / move |
+| `H` | Pan (or hold <kbd>Alt</kbd>, or drag empty canvas) |
+| `E` | Connect — click the source component, then the target |
+| `T` | Text |
+| `R` / `O` | Group box / ellipse |
+| `P` | Freehand pen |
+| `⌘Z` / `⇧⌘Z` | Undo / redo |
+| `Delete` | Delete selection |
+| `Esc` | Deselect, back to the select tool |
+
+Scroll to zoom, **Fit** to frame everything. The document autosaves to `localStorage`
+on every change, and **Export JSON** / **Import** move it between machines. **SVG**
+exports the canvas re-framed to its content, not to your current viewport.
 
 ## Getting started
 
@@ -55,10 +70,17 @@ Requires Node 18+. React 18 and Vite 5 are the only dependencies.
 ```
 index.html          # mounts /src/main.jsx
 src/
+  main.jsx          # React root; mirrors theme tokens onto :root as CSS vars
+  App.jsx           # toolbar, keyboard shortcuts, import/export, autosave
+  styles.css        # shell chrome — the canvas itself is styled inline
   catalog.js        # CATEGORIES, TYPE_INDEX, FR/NFR chips — the component library
   icons.jsx         # generic concept icons (ICON map + <Icon>)
   logos.jsx         # real product logos (LOGOS map)
   theme.js          # design tokens (T) and the edge/shape PALETTE
+  ui/
+    Palette.jsx     # searchable component picker
+    Canvas.jsx      # the SVG canvas: pan, zoom, drag, connect, draw
+    Inspector.jsx   # selection properties, design brief, requirement checklists
   lib/
     doc.js          # document model, localStorage persistence, useDoc() undo/redo
     geometry.js     # node/edge geometry, text wrapping, bounds, freehand smoothing
@@ -74,6 +96,18 @@ meets each node's border (straight or Bézier) plus the midpoint for its label, 
 `snapshot()` **once at the start of a gesture** rather than per frame, so an entire drag
 collapses into a single undo step. `normalizeDoc()` tolerates older or hand-edited JSON,
 which is what makes saved documents safe to load across versions.
+
+## Known rough edges
+
+- **No `<StrictMode>`.** `useDoc()` mutates its history refs from inside a `setState`
+  updater. StrictMode double-invokes updaters in development, which would push each
+  action onto the undo stack twice. Moving those ref writes out of the updater would let
+  StrictMode go back on.
+- **Three types are both a concept and a brand** — `redis`, `kafka` and `zookeeper`.
+  `<Icon>` checks `LOGOS` before `ICON`, so the generic `G.redis` / `G.kafka` /
+  `G.zookeeper` marks are unreachable and the "Cache (generic)", "Event Log" and
+  "Service Discovery" items draw as brand logos. The palette collapses each pair into a
+  single cell. A clean fix is to rename either side of the collision.
 
 ## License
 
