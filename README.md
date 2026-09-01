@@ -32,7 +32,8 @@ You read them off the canvas instead of memorizing them.
 - **Free text anywhere** — double-click bare canvas and type, right where you're
   pointing. No text box to place first.
 - **Directed and undirected connections** — one arrowhead for flow, a head at both ends
-  for two-way relationships, switchable per edge or as the default for new ones.
+  for two-way relationships, switchable per edge or as the default for new ones. Any
+  boxed thing can be an endpoint: components, group boxes and ellipses alike.
 - **A canvas document model** with nodes, edges, free text, shapes and freehand
   drawings — autosaved to `localStorage`, with undo/redo.
 - **A pitch-black canvas with a radiant palette** — true `#000` ground, no grid, and
@@ -58,7 +59,9 @@ text reopens it in place. Empty text is discarded rather than left invisible.
 **Connections go both ways.** Press <kbd>E</kbd>, click a source then a target.
 Directed links carry a single arrowhead; undirected ones carry a head at both ends. The
 **Arrow** toggle in the toolbar sets the default for new links, and any edge can be
-switched from the inspector.
+switched from the inspector. Group boxes and ellipses connect too — click their border,
+which is also how you select and drag them, so the interior stays free for whatever you
+draw inside.
 
 | Key | Tool |
 | --- | --- |

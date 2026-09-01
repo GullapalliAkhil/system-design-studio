@@ -28,6 +28,7 @@ export default function Canvas({
 }) {
   const drag = useRef(null);
   const inputRef = useRef(null);
+  const hasFocus = useRef(false);
   const [draft, setDraft] = useState(null);
   const [pending, setPending] = useState(null); // node id awaiting an edge target
   const [editing, setEditing] = useState(null); // text id currently being typed into
@@ -36,14 +37,17 @@ export default function Canvas({
     if (tool !== "edge") setPending(null);
   }, [tool]);
 
-  /* Focus explicitly rather than via autoFocus: the editor mounts in the same
-     tick as the pointer gesture that created it, and autoFocus loses that race. */
+  /* Focus on the next frame, not synchronously. The editor is created on the
+     second pointerdown, and the mouseup/click still to come in that same
+     gesture would otherwise move focus straight back off it. */
   useEffect(() => {
+    hasFocus.current = false;
     if (!editing) return;
-    const el = inputRef.current;
-    if (!el) return;
-    el.focus();
-    el.select();
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(id);
   }, [editing]);
 
   /* Native listener so preventDefault() is honoured (React's onWheel is passive). */
@@ -91,22 +95,25 @@ export default function Canvas({
     setTool("select");
   }
 
-  /* Lives on the <svg>, not on the background rect: setPointerCapture()
-     retargets the compatibility mouse events, so dblclick is delivered to the
-     capture element rather than whatever is under the cursor. Hit-test by
-     coordinate instead of trusting e.target. */
-  function onCanvasDoubleClick(e) {
-    const hit = document.elementFromPoint(e.clientX, e.clientY);
-    const existing = hit?.closest?.("[data-text-id]");
-    if (existing) {
-      setEditing(existing.getAttribute("data-text-id"));
-      return;
-    }
-    // Only bare canvas starts a new label; nodes and edges keep their own behaviour.
-    if (hit?.hasAttribute?.("data-bg")) createTextAt(toWorld(e));
+  /* Recognise the double-click from consecutive pointerdowns instead of using
+     the browser's dblclick. setPointerCapture() retargets the compatibility
+     mouse events, so which element receives dblclick varies by engine — and on
+     the capture path it never reaches the canvas at all. Two pointerdowns close
+     in time and space is the same gesture, measured somewhere reliable. */
+  const lastDown = useRef({ t: 0, x: 0, y: 0 });
+
+  function isDoubleClick(e) {
+    const prev = lastDown.current;
+    const quick = e.timeStamp - prev.t < 400 && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < 6;
+    // Zero the clock on a hit so a third click doesn't read as another pair.
+    lastDown.current = { t: quick ? 0 : e.timeStamp, x: e.clientX, y: e.clientY };
+    return quick;
   }
 
   function stopEditing() {
+    // A blur before the editor ever held focus is the tail of the gesture that
+    // opened it, not the user leaving. Don't let that close and discard it.
+    if (!hasFocus.current) return;
     const t = doc.texts.find((x) => x.id === editing);
     // An empty label renders as nothing and could never be clicked again.
     if (t && !t.text.trim()) {
@@ -119,6 +126,11 @@ export default function Canvas({
   /* ── Background gestures ─────────────────────────── */
   function onBackgroundDown(e) {
     if (editing) return; // let the open editor commit via its own blur
+
+    if (tool === "select" && e.button === 0 && !e.altKey && isDoubleClick(e)) {
+      createTextAt(toWorld(e));
+      return;
+    }
 
     if (e.button === 1 || tool === "pan" || e.altKey) {
       drag.current = { kind: "pan", sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y };
@@ -141,25 +153,32 @@ export default function Canvas({
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
 
+  /* Anything with a box can be an endpoint, so group boxes and ellipses
+     connect exactly like components do. */
+  function tryConnect(id) {
+    if (!pending) {
+      setPending(id);
+      return;
+    }
+    if (pending === id) return;
+    const edge = {
+      id: uid("e"),
+      from: pending,
+      to: id,
+      label: "",
+      color: T.textMuted,
+      dashed: false,
+      directed,
+    };
+    update((d) => ({ edges: [...d.edges, edge] }));
+    setPending(null);
+    setSel({ kind: "edge", id: edge.id });
+  }
+
   function onNodeDown(e, node) {
     e.stopPropagation();
     if (tool === "edge") {
-      if (!pending) {
-        setPending(node.id);
-      } else if (pending !== node.id) {
-        const edge = {
-          id: uid("e"),
-          from: pending,
-          to: node.id,
-          label: "",
-          color: T.textMuted,
-          dashed: false,
-          directed,
-        };
-        update((d) => ({ edges: [...d.edges, edge] }));
-        setPending(null);
-        setSel({ kind: "edge", id: edge.id });
-      }
+      tryConnect(node.id);
       return;
     }
     if (tool !== "select") return;
@@ -172,7 +191,16 @@ export default function Canvas({
 
   function onItemDown(e, kind, item) {
     e.stopPropagation();
+    if (tool === "edge") {
+      if (kind === "shape") tryConnect(item.id);
+      return;
+    }
     if (tool !== "select") return;
+    if (kind === "text" && isDoubleClick(e)) {
+      setSel({ kind, id: item.id });
+      setEditing(item.id);
+      return;
+    }
     setSel({ kind, id: item.id });
     const p = toWorld(e);
     snapshot();
@@ -247,7 +275,8 @@ export default function Canvas({
     setDraft(null);
   }
 
-  const nodeById = Object.fromEntries(doc.nodes.map((n) => [n.id, n]));
+  // Edge endpoints may be either a component or a shape.
+  const boxById = Object.fromEntries([...doc.nodes, ...doc.shapes].map((o) => [o.id, o]));
   const isSel = (kind, id) => sel && sel.kind === kind && sel.id === id;
   const editingText = doc.texts.find((t) => t.id === editing) || null;
 
@@ -259,7 +288,6 @@ export default function Canvas({
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
-        onDoubleClick={onCanvasDoubleClick}
       >
         <defs>
           {MARKERS.map((m) => (
@@ -280,35 +308,56 @@ export default function Canvas({
 
         {/* Plain black ground. Also the hit target: double-clicking bare canvas
             is the fastest way to start writing. */}
-        <rect x="0" y="0" width="100%" height="100%" fill={T.canvas} data-bg="" />
+        <rect x="0" y="0" width="100%" height="100%" fill={T.canvas} />
 
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
           {/* Shapes sit behind everything — they're grouping boxes. */}
-          {doc.shapes.map((s) => (
-            <g key={s.id} onPointerDown={(e) => onItemDown(e, "shape", s)} style={{ cursor: "move" }}>
+          {doc.shapes.map((s) => {
+            const on = isSel("shape", s.id);
+            const armed = pending === s.id;
+            const stroke = on || armed ? T.accent : s.color;
+            const dash = armed ? "5 3" : s.dashed ? "6 4" : undefined;
+            const cx = s.x + s.w / 2;
+            const cy = s.y + s.h / 2;
+            return (
+            <g
+              key={s.id}
+              onPointerDown={(e) => onItemDown(e, "shape", s)}
+              style={{ cursor: tool === "edge" ? "crosshair" : "move" }}
+            >
+              {/* Fat transparent outline: the border is the handle, so the
+                  interior stays free for the canvas underneath. */}
               {s.kind === "ellipse" ? (
-                <ellipse
-                  cx={s.x + s.w / 2}
-                  cy={s.y + s.h / 2}
-                  rx={s.w / 2}
-                  ry={s.h / 2}
-                  fill="none"
-                  stroke={isSel("shape", s.id) ? T.accent : s.color}
-                  strokeWidth="2"
-                  strokeDasharray={s.dashed ? "6 4" : undefined}
-                />
+                <>
+                  <ellipse cx={cx} cy={cy} rx={s.w / 2} ry={s.h / 2} fill="none" stroke="transparent" strokeWidth="16" />
+                  <ellipse
+                    cx={cx}
+                    cy={cy}
+                    rx={s.w / 2}
+                    ry={s.h / 2}
+                    fill="none"
+                    stroke={stroke}
+                    strokeWidth="2"
+                    strokeDasharray={dash}
+                    style={{ filter: on || armed ? `drop-shadow(0 0 10px ${T.accent}aa)` : undefined }}
+                  />
+                </>
               ) : (
-                <rect
-                  x={s.x}
-                  y={s.y}
-                  width={s.w}
-                  height={s.h}
-                  rx="8"
-                  fill="none"
-                  stroke={isSel("shape", s.id) ? T.accent : s.color}
-                  strokeWidth="2"
-                  strokeDasharray={s.dashed ? "6 4" : undefined}
-                />
+                <>
+                  <rect x={s.x} y={s.y} width={s.w} height={s.h} rx="8" fill="none" stroke="transparent" strokeWidth="16" />
+                  <rect
+                    x={s.x}
+                    y={s.y}
+                    width={s.w}
+                    height={s.h}
+                    rx="8"
+                    fill="none"
+                    stroke={stroke}
+                    strokeWidth="2"
+                    strokeDasharray={dash}
+                    style={{ filter: on || armed ? `drop-shadow(0 0 10px ${T.accent}aa)` : undefined }}
+                  />
+                </>
               )}
               {s.label ? (
                 <text x={s.x + 10} y={s.y - 6} fontSize="12" fill={s.color}>
@@ -316,7 +365,8 @@ export default function Canvas({
                 </text>
               ) : null}
             </g>
-          ))}
+            );
+          })}
 
           {doc.drawings.map((d) => (
             <path
@@ -335,8 +385,8 @@ export default function Canvas({
           ))}
 
           {doc.edges.map((e) => {
-            const a = nodeById[e.from];
-            const b = nodeById[e.to];
+            const a = boxById[e.from];
+            const b = boxById[e.to];
             if (!a || !b) return null; // endpoint deleted
             const g = edgeGeometry(a, b, curved);
             const on = isSel("edge", e.id);
@@ -445,7 +495,6 @@ export default function Canvas({
           {doc.texts.map((t) => (
             <text
               key={t.id}
-              data-text-id={t.id}
               x={t.x}
               y={t.y}
               fontSize={t.size}
@@ -457,10 +506,6 @@ export default function Canvas({
                 filter: `drop-shadow(0 0 6px ${t.color}55)`,
               }}
               onPointerDown={(e) => onItemDown(e, "text", t)}
-              onDoubleClick={(ev) => {
-                ev.stopPropagation();
-                setEditing(t.id);
-              }}
             >
               {/* <text> has no line breaks of its own. */}
               {String(t.text)
@@ -522,6 +567,9 @@ export default function Canvas({
             top: (editingText.y - editingText.size) * view.k + view.y,
             fontSize: editingText.size * view.k,
             color: editingText.color,
+          }}
+          onFocus={() => {
+            hasFocus.current = true;
           }}
           value={editingText.text}
           onChange={(ev) =>

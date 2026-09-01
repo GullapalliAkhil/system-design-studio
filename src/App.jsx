@@ -59,8 +59,10 @@ export default function App() {
     const { kind, id } = sel;
     update((d) => {
       const next = { [`${kind}s`]: d[`${kind}s`].filter((x) => x.id !== id) };
-      // A node's edges have nowhere to attach once it's gone.
-      if (kind === "node") next.edges = d.edges.filter((e) => e.from !== id && e.to !== id);
+      // Connections to a deleted endpoint have nowhere left to attach.
+      if (kind === "node" || kind === "shape") {
+        next.edges = d.edges.filter((e) => e.from !== id && e.to !== id);
+      }
       return next;
     });
     setSel(null);
