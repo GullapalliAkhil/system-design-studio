@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import LeftPanel from "./ui/LeftPanel.jsx";
+import Palette from "./ui/Palette.jsx";
 import Canvas from "./ui/Canvas.jsx";
 import Inspector from "./ui/Inspector.jsx";
 import { TYPE_INDEX } from "./catalog.js";
@@ -17,17 +17,6 @@ const TOOLS = [
   { id: "pen", key: "p", glyph: "✎", title: "Freehand (P)" },
 ];
 
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-function download(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export default function App() {
   const initial = useMemo(() => loadDoc(), []);
   const { doc, update, replace, snapshot, undo, redo, canUndo, canRedo } = useDoc(initial);
@@ -37,9 +26,9 @@ export default function App() {
   const [sel, setSel] = useState(null);
   const [snap, setSnap] = useState(true);
   const [curved, setCurved] = useState(true);
+  const [directed, setDirected] = useState(true); // default for newly drawn edges
 
   const svgRef = useRef(null);
-  const fileRef = useRef(null);
 
   /* Best-effort autosave; loadDoc() reads it back on next boot. */
   useEffect(() => {
@@ -82,49 +71,6 @@ export default function App() {
     const b = contentBounds(doc);
     const k = clamp(Math.min(r.width / b.w, r.height / b.h), 0.15, 2);
     setView({ k, x: r.width / 2 - (b.x + b.w / 2) * k, y: r.height / 2 - (b.y + b.h / 2) * k });
-  }
-
-  function exportJSON() {
-    const name = (doc.title || "system-design").replace(/[^\w-]+/g, "-").toLowerCase();
-    download(new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" }), `${name}.json`);
-  }
-
-  function importJSON(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        replace(JSON.parse(String(reader.result))); // normalizeDoc() tolerates older shapes
-        setSel(null);
-      } catch {
-        alert("That file isn't valid Studio JSON.");
-      }
-    };
-    reader.readAsText(file);
-  }
-
-  /* Snapshot the live canvas, re-framed to its content instead of the viewport. */
-  function exportSVG() {
-    const b = contentBounds(doc);
-    const clone = svgRef.current.cloneNode(true);
-    clone.setAttribute("xmlns", SVG_NS);
-    clone.setAttribute("viewBox", `${b.x} ${b.y} ${b.w} ${b.h}`);
-    clone.setAttribute("width", Math.round(b.w));
-    clone.setAttribute("height", Math.round(b.h));
-    clone.removeAttribute("style");
-    clone.querySelector('rect[fill="url(#grid)"]')?.remove();
-    clone.querySelector("g[transform]")?.setAttribute("transform", "");
-
-    const bg = document.createElementNS(SVG_NS, "rect");
-    bg.setAttribute("x", b.x);
-    bg.setAttribute("y", b.y);
-    bg.setAttribute("width", b.w);
-    bg.setAttribute("height", b.h);
-    bg.setAttribute("fill", T.canvas);
-    clone.insertBefore(bg, clone.querySelector("g[transform]"));
-
-    const src = new XMLSerializer().serializeToString(clone);
-    const name = (doc.title || "system-design").replace(/[^\w-]+/g, "-").toLowerCase();
-    download(new Blob([src], { type: "image/svg+xml" }), `${name}.svg`);
   }
 
   function clearAll() {
@@ -199,33 +145,18 @@ export default function App() {
           <input type="checkbox" checked={curved} onChange={(e) => setCurved(e.target.checked)} />
           Curved
         </label>
+        <label className="toggle" title="Give new connections an arrowhead — off draws undirected links">
+          <input type="checkbox" checked={directed} onChange={(e) => setDirected(e.target.checked)} />
+          Arrow
+        </label>
 
         <div className="divider" />
-        <button className="btn" onClick={exportJSON}>
-          Export JSON
-        </button>
-        <button className="btn" onClick={() => fileRef.current.click()}>
-          Import
-        </button>
-        <button className="btn" onClick={exportSVG}>
-          SVG
-        </button>
         <button className="btn danger" onClick={clearAll}>
           Clear
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(e) => {
-            if (e.target.files[0]) importJSON(e.target.files[0]);
-            e.target.value = "";
-          }}
-        />
       </header>
 
-      <LeftPanel doc={doc} update={update} onAdd={addNode} />
+      <Palette onAdd={addNode} />
 
       <div className={`stage tool-${tool}`}>
         <Canvas
@@ -241,6 +172,7 @@ export default function App() {
           setSel={setSel}
           snap={snap}
           curved={curved}
+          directed={directed}
         />
 
         <div className="hud">

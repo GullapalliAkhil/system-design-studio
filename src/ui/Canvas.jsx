@@ -2,16 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons.jsx";
 import { TYPE_INDEX } from "../catalog.js";
 import { T, PALETTE } from "../theme.js";
-import {
-  GRID,
-  clamp,
-  edgeGeometry,
-  simplify,
-  snapTo,
-  strokePath,
-  uid,
-  wrapText,
-} from "../lib/geometry.js";
+import { clamp, edgeGeometry, simplify, snapTo, strokePath, uid, wrapText } from "../lib/geometry.js";
 
 const MIN_K = 0.15;
 const MAX_K = 4;
@@ -33,8 +24,10 @@ export default function Canvas({
   setSel,
   snap,
   curved,
+  directed,
 }) {
   const drag = useRef(null);
+  const inputRef = useRef(null);
   const [draft, setDraft] = useState(null);
   const [pending, setPending] = useState(null); // node id awaiting an edge target
   const [editing, setEditing] = useState(null); // text id currently being typed into
@@ -42,6 +35,16 @@ export default function Canvas({
   useEffect(() => {
     if (tool !== "edge") setPending(null);
   }, [tool]);
+
+  /* Focus explicitly rather than via autoFocus: the editor mounts in the same
+     tick as the pointer gesture that created it, and autoFocus loses that race. */
+  useEffect(() => {
+    if (!editing) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+  }, [editing]);
 
   /* Native listener so preventDefault() is honoured (React's onWheel is passive). */
   useEffect(() => {
@@ -71,7 +74,7 @@ export default function Canvas({
   };
 
   /* ── Free text ───────────────────────────────────── */
-  /* Text goes wherever you want it: the text tool, or a double-click on empty
+  /* Text goes wherever you want it: the text tool, or a double-click on bare
      canvas. Either way it lands empty and immediately in edit mode. */
   function createTextAt(p) {
     const item = {
@@ -90,7 +93,7 @@ export default function Canvas({
 
   function stopEditing() {
     const t = doc.texts.find((x) => x.id === editing);
-    // An empty label renders as nothing and can never be clicked again.
+    // An empty label renders as nothing and could never be clicked again.
     if (t && !t.text.trim()) {
       update((d) => ({ texts: d.texts.filter((x) => x.id !== t.id) }), false);
       setSel(null);
@@ -100,6 +103,8 @@ export default function Canvas({
 
   /* ── Background gestures ─────────────────────────── */
   function onBackgroundDown(e) {
+    if (editing) return; // let the open editor commit via its own blur
+
     if (e.button === 1 || tool === "pan" || e.altKey) {
       drag.current = { kind: "pan", sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y };
     } else if (tool === "select") {
@@ -134,6 +139,7 @@ export default function Canvas({
           label: "",
           color: T.textMuted,
           dashed: false,
+          directed,
         };
         update((d) => ({ edges: [...d.edges, edge] }));
         setPending(null);
@@ -231,306 +237,298 @@ export default function Canvas({
   const editingText = doc.texts.find((t) => t.id === editing) || null;
 
   return (
-    <svg
-      ref={svgRef}
-      onPointerDown={onBackgroundDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
-    >
-      <defs>
-        {/* Dots read better than rules on true black. Sized in screen space and
-            offset by the pan so the field tracks the content as you zoom. */}
-        <pattern
-          id="grid"
-          width={GRID * 4 * view.k}
-          height={GRID * 4 * view.k}
-          patternUnits="userSpaceOnUse"
-          patternTransform={`translate(${view.x},${view.y})`}
-        >
-          <circle cx="1" cy="1" r="1" fill={T.grid} />
-        </pattern>
-        {MARKERS.map((m) => (
-          <marker
-            key={m.id}
-            id={m.id}
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="7"
-            markerHeight="7"
-            orient="auto-start-reverse"
-          >
-            <path d="M0,1 L9,5 L0,9 z" fill={m.color} />
-          </marker>
-        ))}
-      </defs>
-
-      {/* Dot field — the pattern itself carries the pan offset.
-          Double-clicking bare canvas is the fastest way to start writing. */}
-      <rect
-        x="0"
-        y="0"
-        width="100%"
-        height="100%"
-        fill="url(#grid)"
-        onDoubleClick={(e) => createTextAt(toWorld(e))}
-      />
-
-      <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
-        {/* Shapes sit behind everything — they're grouping boxes. */}
-        {doc.shapes.map((s) => (
-          <g key={s.id} onPointerDown={(e) => onItemDown(e, "shape", s)} style={{ cursor: "move" }}>
-            {s.kind === "ellipse" ? (
-              <ellipse
-                cx={s.x + s.w / 2}
-                cy={s.y + s.h / 2}
-                rx={s.w / 2}
-                ry={s.h / 2}
-                fill="none"
-                stroke={isSel("shape", s.id) ? T.accent : s.color}
-                strokeWidth="2"
-                strokeDasharray={s.dashed ? "6 4" : undefined}
-              />
-            ) : (
-              <rect
-                x={s.x}
-                y={s.y}
-                width={s.w}
-                height={s.h}
-                rx="8"
-                fill="none"
-                stroke={isSel("shape", s.id) ? T.accent : s.color}
-                strokeWidth="2"
-                strokeDasharray={s.dashed ? "6 4" : undefined}
-              />
-            )}
-            {s.label ? (
-              <text x={s.x + 10} y={s.y - 6} fontSize="12" fill={s.color}>
-                {s.label}
-              </text>
-            ) : null}
-          </g>
-        ))}
-
-        {doc.drawings.map((d) => (
-          <path
-            key={d.id}
-            d={strokePath(d.points)}
-            fill="none"
-            stroke={d.color}
-            strokeWidth={d.width}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              if (tool === "select") setSel({ kind: "drawing", id: d.id });
-            }}
-          />
-        ))}
-
-        {doc.edges.map((e) => {
-          const a = nodeById[e.from];
-          const b = nodeById[e.to];
-          if (!a || !b) return null; // endpoint deleted
-          const g = edgeGeometry(a, b, curved);
-          const on = isSel("edge", e.id);
-          const color = on ? T.accent : e.color;
-          return (
-            <g
-              key={e.id}
-              onPointerDown={(ev) => {
-                ev.stopPropagation();
-                if (tool === "select") setSel({ kind: "edge", id: e.id });
-              }}
-              style={{ cursor: "pointer" }}
+    <>
+      <svg
+        ref={svgRef}
+        onPointerDown={onBackgroundDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
+      >
+        <defs>
+          {MARKERS.map((m) => (
+            <marker
+              key={m.id}
+              id={m.id}
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
             >
-              {/* Fat transparent hit area — a 2px line is hard to click. */}
-              <path d={g.d} fill="none" stroke="transparent" strokeWidth="14" />
-              <path
-                d={g.d}
-                fill="none"
-                stroke={color}
-                strokeWidth={on ? 2.5 : 1.8}
-                strokeDasharray={e.dashed ? "6 4" : undefined}
-                markerEnd={`url(#${markerFor(e.color)})`}
-                style={{ filter: `drop-shadow(0 0 ${on ? 7 : 4}px ${color}${on ? "aa" : "66"})` }}
-              />
-              {e.label ? (
-                <>
-                  <rect
-                    x={g.mid.x - e.label.length * 3.2 - 5}
-                    y={g.mid.y - 9}
-                    width={e.label.length * 6.4 + 10}
-                    height="18"
-                    rx="4"
-                    fill={T.canvas}
-                    stroke={T.border}
-                  />
-                  <text x={g.mid.x} y={g.mid.y + 4} fontSize="11" fill={T.textMuted} textAnchor="middle">
-                    {e.label}
-                  </text>
-                </>
+              <path d="M0,1 L9,5 L0,9 z" fill={m.color} />
+            </marker>
+          ))}
+        </defs>
+
+        {/* Plain black ground. Also the hit target: double-clicking bare canvas
+            is the fastest way to start writing. */}
+        <rect
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill={T.canvas}
+          onDoubleClick={(e) => createTextAt(toWorld(e))}
+        />
+
+        <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+          {/* Shapes sit behind everything — they're grouping boxes. */}
+          {doc.shapes.map((s) => (
+            <g key={s.id} onPointerDown={(e) => onItemDown(e, "shape", s)} style={{ cursor: "move" }}>
+              {s.kind === "ellipse" ? (
+                <ellipse
+                  cx={s.x + s.w / 2}
+                  cy={s.y + s.h / 2}
+                  rx={s.w / 2}
+                  ry={s.h / 2}
+                  fill="none"
+                  stroke={isSel("shape", s.id) ? T.accent : s.color}
+                  strokeWidth="2"
+                  strokeDasharray={s.dashed ? "6 4" : undefined}
+                />
+              ) : (
+                <rect
+                  x={s.x}
+                  y={s.y}
+                  width={s.w}
+                  height={s.h}
+                  rx="8"
+                  fill="none"
+                  stroke={isSel("shape", s.id) ? T.accent : s.color}
+                  strokeWidth="2"
+                  strokeDasharray={s.dashed ? "6 4" : undefined}
+                />
+              )}
+              {s.label ? (
+                <text x={s.x + 10} y={s.y - 6} fontSize="12" fill={s.color}>
+                  {s.label}
+                </text>
               ) : null}
             </g>
-          );
-        })}
+          ))}
 
-        {doc.nodes.map((n) => {
-          const meta = TYPE_INDEX[n.type] || {};
-          const color = n.color || meta.color || T.accent;
-          const label = n.label ?? meta.name ?? n.type;
-          const lines = wrapText(label, n.w - 14, 11, 2);
-          const on = isSel("node", n.id);
-          const armed = pending === n.id;
-          return (
-            <g
-              key={n.id}
-              onPointerDown={(e) => onNodeDown(e, n)}
-              style={{ cursor: tool === "edge" ? "crosshair" : "move" }}
-            >
-              <rect
-                x={n.x}
-                y={n.y}
-                width={n.w}
-                height={n.h}
-                rx="12"
-                fill={T.surface2}
-                stroke={on || armed ? T.accent : color}
-                strokeWidth={on || armed ? 2 : 1.4}
-                strokeDasharray={armed ? "5 3" : undefined}
-                style={{
-                  filter: `drop-shadow(0 0 ${on || armed ? 14 : 7}px ${
-                    on || armed ? T.accent : color
-                  }${on || armed ? "cc" : "55"})`,
-                }}
-              />
-              {/* Faint wash of the component's own colour so it reads as lit. */}
-              <rect
-                x={n.x}
-                y={n.y}
-                width={n.w}
-                height={n.h}
-                rx="12"
-                fill={color}
-                opacity="0.07"
-                pointerEvents="none"
-              />
-              <Icon type={n.type} color={color} x={n.x + (n.w - 36) / 2} y={n.y + 11} size={36} />
-              {lines.map((ln, i) => (
-                <text
-                  key={i}
-                  x={n.x + n.w / 2}
-                  y={n.y + 62 + i * 13}
-                  fontSize="11"
-                  fill={T.text}
-                  textAnchor="middle"
-                >
-                  {ln}
-                </text>
-              ))}
-            </g>
-          );
-        })}
-
-        {doc.texts.map((t) => (
-          <text
-            key={t.id}
-            x={t.x}
-            y={t.y}
-            fontSize={t.size}
-            fill={isSel("text", t.id) ? T.accent : t.color}
-            style={{
-              cursor: "move",
-              // Hidden while its editor is open so the two don't overlap.
-              visibility: editing === t.id ? "hidden" : "visible",
-              filter: `drop-shadow(0 0 6px ${t.color}55)`,
-            }}
-            onPointerDown={(e) => onItemDown(e, "text", t)}
-            onDoubleClick={(ev) => {
-              ev.stopPropagation();
-              setEditing(t.id);
-            }}
-          >
-            {/* <text> has no line breaks of its own. */}
-            {String(t.text).split("\n").map((line, i) => (
-              <tspan key={i} x={t.x} dy={i ? t.size * 1.25 : 0}>
-                {line}
-              </tspan>
-            ))}
-          </text>
-        ))}
-
-        {editingText ? (
-          <foreignObject
-            x={editingText.x - 7}
-            y={editingText.y - editingText.size}
-            width="320"
-            height="140"
-          >
-            <textarea
-              className="canvas-input"
-              autoFocus
-              style={{ fontSize: `${editingText.size}px`, color: editingText.color }}
-              value={editingText.text}
-              onChange={(ev) =>
-                update(
-                  (d) => ({
-                    texts: d.texts.map((x) => (x.id === editingText.id ? { ...x, text: ev.target.value } : x)),
-                  }),
-                  false
-                )
-              }
-              onBlur={stopEditing}
-              onKeyDown={(ev) => {
-                // Enter commits, Shift+Enter adds a line.
-                if (ev.key === "Escape" || (ev.key === "Enter" && !ev.shiftKey)) {
-                  ev.preventDefault();
-                  ev.currentTarget.blur();
-                }
-                ev.stopPropagation();
+          {doc.drawings.map((d) => (
+            <path
+              key={d.id}
+              d={strokePath(d.points)}
+              fill="none"
+              stroke={d.color}
+              strokeWidth={d.width}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                if (tool === "select") setSel({ kind: "drawing", id: d.id });
               }}
-              onPointerDown={(ev) => ev.stopPropagation()}
             />
-          </foreignObject>
-        ) : null}
+          ))}
 
-        {/* In-flight draft */}
-        {draft && draft.kind === "rect" ? (
-          <rect
-            x={draft.x}
-            y={draft.y}
-            width={draft.w}
-            height={draft.h}
-            rx="8"
-            fill="none"
-            stroke={T.accent}
-            strokeWidth="1.5"
-            strokeDasharray="5 4"
-          />
-        ) : null}
-        {draft && draft.kind === "ellipse" ? (
-          <ellipse
-            cx={draft.x + draft.w / 2}
-            cy={draft.y + draft.h / 2}
-            rx={draft.w / 2}
-            ry={draft.h / 2}
-            fill="none"
-            stroke={T.accent}
-            strokeWidth="1.5"
-            strokeDasharray="5 4"
-          />
-        ) : null}
-        {draft && draft.kind === "pen" ? (
-          <path
-            d={strokePath(draft.points)}
-            fill="none"
-            stroke={draft.color}
-            strokeWidth={draft.width}
-            strokeLinecap="round"
-          />
-        ) : null}
-      </g>
-    </svg>
+          {doc.edges.map((e) => {
+            const a = nodeById[e.from];
+            const b = nodeById[e.to];
+            if (!a || !b) return null; // endpoint deleted
+            const g = edgeGeometry(a, b, curved);
+            const on = isSel("edge", e.id);
+            const color = on ? T.accent : e.color;
+            return (
+              <g
+                key={e.id}
+                onPointerDown={(ev) => {
+                  ev.stopPropagation();
+                  if (tool === "select") setSel({ kind: "edge", id: e.id });
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                {/* Fat transparent hit area — a 2px line is hard to click. */}
+                <path d={g.d} fill="none" stroke="transparent" strokeWidth="14" />
+                <path
+                  d={g.d}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={on ? 2.5 : 1.8}
+                  strokeDasharray={e.dashed ? "6 4" : undefined}
+                  markerEnd={e.directed === false ? undefined : `url(#${markerFor(e.color)})`}
+                  style={{ filter: `drop-shadow(0 0 ${on ? 7 : 4}px ${color}${on ? "aa" : "66"})` }}
+                />
+                {e.label ? (
+                  <>
+                    <rect
+                      x={g.mid.x - e.label.length * 3.2 - 5}
+                      y={g.mid.y - 9}
+                      width={e.label.length * 6.4 + 10}
+                      height="18"
+                      rx="4"
+                      fill={T.canvas}
+                      stroke={T.border}
+                    />
+                    <text x={g.mid.x} y={g.mid.y + 4} fontSize="11" fill={T.textMuted} textAnchor="middle">
+                      {e.label}
+                    </text>
+                  </>
+                ) : null}
+              </g>
+            );
+          })}
+
+          {doc.nodes.map((n) => {
+            const meta = TYPE_INDEX[n.type] || {};
+            const color = n.color || meta.color || T.accent;
+            const label = n.label ?? meta.name ?? n.type;
+            const lines = wrapText(label, n.w - 14, 11, 2);
+            const on = isSel("node", n.id);
+            const armed = pending === n.id;
+            return (
+              <g
+                key={n.id}
+                onPointerDown={(e) => onNodeDown(e, n)}
+                style={{ cursor: tool === "edge" ? "crosshair" : "move" }}
+              >
+                <rect
+                  x={n.x}
+                  y={n.y}
+                  width={n.w}
+                  height={n.h}
+                  rx="12"
+                  fill={T.surface2}
+                  stroke={on || armed ? T.accent : color}
+                  strokeWidth={on || armed ? 2 : 1.4}
+                  strokeDasharray={armed ? "5 3" : undefined}
+                  style={{
+                    filter: `drop-shadow(0 0 ${on || armed ? 14 : 7}px ${
+                      on || armed ? T.accent : color
+                    }${on || armed ? "cc" : "55"})`,
+                  }}
+                />
+                {/* Faint wash of the component's own colour so it reads as lit. */}
+                <rect
+                  x={n.x}
+                  y={n.y}
+                  width={n.w}
+                  height={n.h}
+                  rx="12"
+                  fill={color}
+                  opacity="0.07"
+                  pointerEvents="none"
+                />
+                <Icon type={n.type} color={color} x={n.x + (n.w - 36) / 2} y={n.y + 11} size={36} />
+                {lines.map((ln, i) => (
+                  <text
+                    key={i}
+                    x={n.x + n.w / 2}
+                    y={n.y + 62 + i * 13}
+                    fontSize="11"
+                    fill={T.text}
+                    textAnchor="middle"
+                  >
+                    {ln}
+                  </text>
+                ))}
+              </g>
+            );
+          })}
+
+          {doc.texts.map((t) => (
+            <text
+              key={t.id}
+              x={t.x}
+              y={t.y}
+              fontSize={t.size}
+              fill={isSel("text", t.id) ? T.accent : t.color}
+              style={{
+                cursor: "move",
+                // Hidden while its editor is open so the two don't overlap.
+                visibility: editing === t.id ? "hidden" : "visible",
+                filter: `drop-shadow(0 0 6px ${t.color}55)`,
+              }}
+              onPointerDown={(e) => onItemDown(e, "text", t)}
+              onDoubleClick={(ev) => {
+                ev.stopPropagation();
+                setEditing(t.id);
+              }}
+            >
+              {/* <text> has no line breaks of its own. */}
+              {String(t.text)
+                .split("\n")
+                .map((line, i) => (
+                  <tspan key={i} x={t.x} dy={i ? t.size * 1.25 : 0}>
+                    {line}
+                  </tspan>
+                ))}
+            </text>
+          ))}
+
+          {/* In-flight draft */}
+          {draft && draft.kind === "rect" ? (
+            <rect
+              x={draft.x}
+              y={draft.y}
+              width={draft.w}
+              height={draft.h}
+              rx="8"
+              fill="none"
+              stroke={T.accent}
+              strokeWidth="1.5"
+              strokeDasharray="5 4"
+            />
+          ) : null}
+          {draft && draft.kind === "ellipse" ? (
+            <ellipse
+              cx={draft.x + draft.w / 2}
+              cy={draft.y + draft.h / 2}
+              rx={draft.w / 2}
+              ry={draft.h / 2}
+              fill="none"
+              stroke={T.accent}
+              strokeWidth="1.5"
+              strokeDasharray="5 4"
+            />
+          ) : null}
+          {draft && draft.kind === "pen" ? (
+            <path
+              d={strokePath(draft.points)}
+              fill="none"
+              stroke={draft.color}
+              strokeWidth={draft.width}
+              strokeLinecap="round"
+            />
+          ) : null}
+        </g>
+      </svg>
+
+      {/* A real HTML textarea layered over the canvas, not a <foreignObject>:
+          focus and IME behave properly, and it can't be clipped by the SVG. */}
+      {editingText ? (
+        <textarea
+          ref={inputRef}
+          className="canvas-input"
+          style={{
+            left: editingText.x * view.k + view.x,
+            top: (editingText.y - editingText.size) * view.k + view.y,
+            fontSize: editingText.size * view.k,
+            color: editingText.color,
+          }}
+          value={editingText.text}
+          onChange={(ev) =>
+            update(
+              (d) => ({
+                texts: d.texts.map((x) => (x.id === editingText.id ? { ...x, text: ev.target.value } : x)),
+              }),
+              false
+            )
+          }
+          onBlur={stopEditing}
+          onKeyDown={(ev) => {
+            // Enter commits, Shift+Enter adds a line.
+            if (ev.key === "Escape" || (ev.key === "Enter" && !ev.shiftKey)) {
+              ev.preventDefault();
+              ev.currentTarget.blur();
+            }
+            ev.stopPropagation();
+          }}
+        />
+      ) : null}
+    </>
   );
 }

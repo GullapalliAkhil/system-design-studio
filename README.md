@@ -26,31 +26,38 @@ You read them off the canvas instead of memorizing them.
   Data Stores, Caching, Messaging, Search & Analytics, Platform Services.
 - **28 brand logos** (Postgres, Redis, Kafka, S3, Kubernetes, Stripe, …) so you can go
   from "a cache" to "Redis" in one click.
-- **Requirement checklists** — functional and non-functional, as working to-do lists:
-  add your own, tick them off, rename, delete, clear completed. Seeded from a starter
-  set of chips (*p99 latency < 200ms*, *CAP → AP*, *Read-heavy (100:1)*) so you're never
-  staring at an empty list.
+- **Requirement checklists** — functional and non-functional, in a drawer on the right.
+  Everything in them is yours: type it, press Enter, tick it off, rename it, delete it.
+  No seeded placeholder text.
 - **Free text anywhere** — double-click bare canvas and type, right where you're
   pointing. No text box to place first.
+- **Directed and undirected connections** — arrowheads for flow, plain links for peer
+  relationships, switchable per edge or as the default for new ones.
 - **A canvas document model** with nodes, edges, free text, shapes and freehand
   drawings — autosaved to `localStorage`, with undo/redo.
-- **A pitch-black canvas with a radiant palette** — true `#000` ground, high-chroma
-  accents that glow against it, all from a single token file shared by the SVG canvas
-  and the surrounding chrome.
+- **A pitch-black canvas with a radiant palette** — true `#000` ground, no grid, and
+  high-chroma accents that glow against it, all from a single token file shared by the
+  SVG canvas and the surrounding chrome. Set in Space Grotesk with JetBrains Mono for
+  numerals, both self-hosted so it looks right offline.
 
 ## Using it
 
-The left panel has two tabs. **Components** is the searchable palette — click anything
-to drop it on the canvas. **Requirements** is your design brief plus two checklists you
-actually work: type a requirement and hit <kbd>+</kbd>, click any task to rename it,
-tick it off, or delete it. A progress bar and a `done/total` badge track where you are.
+The left panel is the searchable component palette — click anything to drop it on the
+canvas. The right panel is your design brief and, when something is selected, its
+properties: label, colour, and the hint for what to say about it.
 
-Select anything on the canvas and the right panel shows its hint — plus an editable
-label, colour, and the category it came from.
+**Requirements** sits at the bottom of the right panel as a collapsed drawer. Open it
+and you get two checklists — functional and non-functional. Type a requirement, press
+<kbd>Enter</kbd>, and it's added. Click any task to rename it, tick the box to mark it
+done, hit <kbd>×</kbd> to remove it. Nothing is pre-filled.
 
 **To write anywhere, just double-click empty canvas** and start typing. <kbd>Enter</kbd>
 commits, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line, and double-clicking existing
 text reopens it in place. Empty text is discarded rather than left invisible.
+
+**Connections go both ways.** Press <kbd>E</kbd>, click a source then a target. The
+**Arrow** toggle in the toolbar sets whether new links get an arrowhead, and any edge
+can be switched between directed and undirected from the inspector.
 
 | Key | Tool |
 | --- | --- |
@@ -65,8 +72,7 @@ text reopens it in place. Empty text is discarded rather than left invisible.
 | `Esc` | Deselect, back to the select tool |
 
 Scroll to zoom, **Fit** to frame everything. The document autosaves to `localStorage`
-on every change, and **Export JSON** / **Import** move it between machines. **SVG**
-exports the canvas re-framed to its content, not to your current viewport.
+on every change, so it's still there when you come back.
 
 ## Getting started
 
@@ -77,7 +83,8 @@ npm run build    # production build to dist/
 npm run preview  # serve the build on :4173
 ```
 
-Requires Node 18+. React 18 and Vite 5 are the only dependencies.
+Requires Node 18+. React 18, Vite 5, and two self-hosted Fontsource families are the
+only dependencies — nothing is fetched at runtime.
 
 ## Layout
 
@@ -85,18 +92,17 @@ Requires Node 18+. React 18 and Vite 5 are the only dependencies.
 index.html          # mounts /src/main.jsx
 src/
   main.jsx          # React root; mirrors theme tokens onto :root as CSS vars
-  App.jsx           # toolbar, keyboard shortcuts, import/export, autosave
+  App.jsx           # toolbar, keyboard shortcuts, autosave
   styles.css        # shell chrome — the canvas itself is styled inline
   catalog.js        # CATEGORIES, TYPE_INDEX, FR/NFR chips — the component library
   icons.jsx         # generic concept icons (ICON map + <Icon>)
   logos.jsx         # real product logos (LOGOS map)
   theme.js          # design tokens (T) and the edge/shape PALETTE
   ui/
-    LeftPanel.jsx   # tab shell: Components | Requirements
-    Palette.jsx     # searchable component picker
-    Requirements.jsx# design brief + the two requirement checklists
+    Palette.jsx     # searchable component picker (left)
     Canvas.jsx      # the SVG canvas: pan, zoom, drag, connect, draw, write
-    Inspector.jsx   # properties for the current selection
+    Inspector.jsx   # right panel: selection properties + the brief
+    Requirements.jsx# collapsible FR/NFR checklists, inside the right panel
   lib/
     doc.js          # document model, localStorage persistence, useDoc() undo/redo
     geometry.js     # node/edge geometry, text wrapping, bounds, freehand smoothing

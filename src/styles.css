@@ -4,6 +4,11 @@
   box-sizing: border-box;
 }
 
+:root {
+  --font-ui: "Space Grotesk Variable", ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 html,
 body,
 #root {
@@ -14,8 +19,10 @@ body,
 body {
   background: var(--canvas);
   color: var(--text);
-  font: 13px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* SVG <text> inherits this, so the canvas gets the display face too. */
+  font: 13px/1.5 var(--font-ui);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
 }
 
@@ -89,20 +96,23 @@ textarea {
 .brand {
   display: flex;
   align-items: baseline;
-  gap: 7px;
+  gap: 8px;
   margin-right: 4px;
-  font-weight: 650;
-  letter-spacing: -0.015em;
-  background: linear-gradient(92deg, var(--accent), var(--cyan) 55%, var(--purple));
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  background: linear-gradient(92deg, var(--accent), var(--cyan) 52%, var(--purple));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .brand small {
-  color: var(--textFaint);
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 400;
   letter-spacing: 0;
+  color: var(--textFaint);
   -webkit-text-fill-color: var(--textFaint);
 }
 
@@ -226,7 +236,7 @@ textarea {
   margin: 2px 0 9px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--textMuted);
 }
@@ -343,8 +353,10 @@ textarea {
 }
 
 .zoom-label {
-  min-width: 44px;
+  min-width: 46px;
   text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--textMuted);
   font-variant-numeric: tabular-nums;
 }
@@ -423,6 +435,40 @@ textarea {
   box-shadow: -6px 0 20px -12px var(--accent);
 }
 
+.segmented {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--canvas);
+  border: 1px solid var(--borderMuted);
+  border-radius: 9px;
+}
+
+.segmented button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--textFaint);
+  transition: color 0.14s, background 0.14s, box-shadow 0.14s;
+}
+
+.segmented button:hover {
+  color: var(--textMuted);
+}
+
+.segmented button.on {
+  color: var(--accent);
+  background: var(--accentSubtle);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
+    0 0 16px -6px var(--accent);
+}
+
 .swatches {
   display: flex;
   flex-wrap: wrap;
@@ -445,28 +491,6 @@ textarea {
 .swatch.on {
   border-color: var(--text);
   box-shadow: 0 0 14px -2px currentColor;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.chip {
-  padding: 4px 9px;
-  border: 1px dashed var(--border);
-  border-radius: 999px;
-  font-size: 11px;
-  color: var(--textFaint);
-  transition: color 0.14s, border-color 0.14s, box-shadow 0.14s;
-}
-
-.chip:hover {
-  border-style: solid;
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  color: var(--accent);
-  box-shadow: 0 0 14px -4px var(--accent);
 }
 
 .tasks {
@@ -535,47 +559,72 @@ textarea {
   color: var(--textMuted);
 }
 
-/* ── Left-panel tabs ───────────────────────────────── */
-.tabs {
-  display: flex;
-  gap: 3px;
-  margin-bottom: 9px;
-  padding: 3px;
-  background: var(--canvas);
-  border: 1px solid var(--borderMuted);
-  border-radius: 9px;
+/* ── Collapsible requirements drawer ───────────────── */
+.collapse {
+  border-top: 1px solid var(--border);
 }
 
-.tab {
-  flex: 1;
+.collapse-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 26px;
-  border-radius: 7px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--textFaint);
-  transition: color 0.14s, background 0.14s, box-shadow 0.14s;
-}
-
-.tab:hover {
+  gap: 8px;
+  width: 100%;
+  padding: 12px 11px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--textMuted);
+  transition: color 0.14s, background 0.14s;
 }
 
-.tab.on {
+.collapse-head:hover {
+  color: var(--text);
+  background: var(--surface2);
+}
+
+.collapse.open .collapse-head {
   color: var(--accent);
-  background: var(--accentSubtle);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
-    0 0 16px -6px var(--accent);
+}
+
+.chev {
+  display: inline-block;
+  font-size: 9px;
+  transition: transform 0.18s ease;
+}
+
+.collapse.open .chev {
+  transform: rotate(90deg);
+}
+
+.collapse-body {
+  padding: 0 11px 14px;
+}
+
+.todo + .todo {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borderMuted);
+}
+
+.todo h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--textFaint);
 }
 
 .badge {
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 999px;
   background: var(--surface3);
   color: var(--textMuted);
+  font-family: var(--font-mono);
   font-size: 9px;
   font-style: normal;
   font-variant-numeric: tabular-nums;
@@ -589,6 +638,7 @@ textarea {
 /* ── Checklists ────────────────────────────────────── */
 .count {
   margin-left: auto;
+  font-family: var(--font-mono);
   color: var(--textFaint);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -664,35 +714,16 @@ textarea {
   color: var(--red);
 }
 
-/* ── Shortcut list ─────────────────────────────────── */
-.keys {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  color: var(--textMuted);
-}
-
-.keys li {
-  padding: 3px 0;
-}
-
-kbd {
-  display: inline-block;
-  padding: 1px 5px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-bottom-width: 2px;
-  border-radius: 5px;
-  font: 600 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--text);
-}
-
 /* ── In-canvas text editor ─────────────────────────── */
+/* Absolutely positioned over the stage; Canvas computes left/top/font-size
+   from the item's world coordinates and the current pan/zoom. */
 .canvas-input {
-  width: 100%;
-  height: 100%;
-  padding: 1px 5px;
-  background: color-mix(in srgb, var(--surface2) 92%, transparent);
+  position: absolute;
+  z-index: 5;
+  width: 260px;
+  min-height: 1.7em;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--surface2) 94%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
   border-radius: 7px;
   outline: none;
