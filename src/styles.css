@@ -26,6 +26,20 @@ body {
   overflow: hidden;
 }
 
+/* This is a drawing surface, not a document: dragging and double-clicking
+   should move and create things, never sweep a text selection across labels. */
+.app {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* …except where you are genuinely typing. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 button {
   font: inherit;
   color: inherit;

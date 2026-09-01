@@ -91,6 +91,21 @@ export default function Canvas({
     setTool("select");
   }
 
+  /* Lives on the <svg>, not on the background rect: setPointerCapture()
+     retargets the compatibility mouse events, so dblclick is delivered to the
+     capture element rather than whatever is under the cursor. Hit-test by
+     coordinate instead of trusting e.target. */
+  function onCanvasDoubleClick(e) {
+    const hit = document.elementFromPoint(e.clientX, e.clientY);
+    const existing = hit?.closest?.("[data-text-id]");
+    if (existing) {
+      setEditing(existing.getAttribute("data-text-id"));
+      return;
+    }
+    // Only bare canvas starts a new label; nodes and edges keep their own behaviour.
+    if (hit?.hasAttribute?.("data-bg")) createTextAt(toWorld(e));
+  }
+
   function stopEditing() {
     const t = doc.texts.find((x) => x.id === editing);
     // An empty label renders as nothing and could never be clicked again.
@@ -244,6 +259,7 @@ export default function Canvas({
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
+        onDoubleClick={onCanvasDoubleClick}
       >
         <defs>
           {MARKERS.map((m) => (
@@ -264,14 +280,7 @@ export default function Canvas({
 
         {/* Plain black ground. Also the hit target: double-clicking bare canvas
             is the fastest way to start writing. */}
-        <rect
-          x="0"
-          y="0"
-          width="100%"
-          height="100%"
-          fill={T.canvas}
-          onDoubleClick={(e) => createTextAt(toWorld(e))}
-        />
+        <rect x="0" y="0" width="100%" height="100%" fill={T.canvas} data-bg="" />
 
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
           {/* Shapes sit behind everything — they're grouping boxes. */}
@@ -436,6 +445,7 @@ export default function Canvas({
           {doc.texts.map((t) => (
             <text
               key={t.id}
+              data-text-id={t.id}
               x={t.x}
               y={t.y}
               fontSize={t.size}
