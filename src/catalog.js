@@ -17,7 +17,8 @@ export const CATEGORIES = [
       { type: "mobile", name: "Mobile App", hint: "Flaky networks → retries with backoff + idempotency keys. Batch requests." },
       { type: "iot", name: "IoT Device", hint: "Huge fan-in, tiny payloads. MQTT over TCP, device auth, ingest buffering." },
     ],
-    brands: ["react"],
+    // No brands here: a rendering library isn't a peer of the boxes you draw.
+    brands: [],
   },
   {
     name: "Edge & Network",

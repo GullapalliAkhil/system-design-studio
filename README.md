@@ -26,8 +26,8 @@ You read them off the canvas instead of memorizing them.
 
 - **38 concept components** across 8 categories — Clients, Edge & Network, Compute,
   Data Stores, Caching, Messaging, Search & Analytics, Platform Services.
-- **28 brand logos** (Postgres, Redis, Kafka, S3, Kubernetes, Stripe, …) so you can go
-  from "a cache" to "Redis" in one click. 66 entries in all, every one distinct — no
+- **27 brand logos** (Postgres, Redis, Kafka, S3, Kubernetes, Stripe, …) so you can go
+  from "a cache" to "Redis" in one click. 65 entries in all, every one distinct — no
   type or display name appears twice.
 - **Requirement checklists** — functional and non-functional, in a drawer on the right.
   Everything in them is yours: type it, press Enter, tick it off, rename it, delete it.
