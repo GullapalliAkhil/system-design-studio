@@ -125,7 +125,7 @@ function Body({ doc, update, sel, onDelete }) {
                 className={item.directed === false ? "on" : ""}
                 onClick={() => patch({ directed: false })}
               >
-                <span aria-hidden="true">—</span> Undirected
+                <span aria-hidden="true">↔</span> Undirected
               </button>
             </div>
           </div>

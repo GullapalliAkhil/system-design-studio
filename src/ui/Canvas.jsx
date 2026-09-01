@@ -343,13 +343,17 @@ export default function Canvas({
               >
                 {/* Fat transparent hit area — a 2px line is hard to click. */}
                 <path d={g.d} fill="none" stroke="transparent" strokeWidth="14" />
+                {/* Undirected links get a head at both ends. The marker is
+                    declared orient="auto-start-reverse", so markerStart turns
+                    itself around without needing a second definition. */}
                 <path
                   d={g.d}
                   fill="none"
                   stroke={color}
                   strokeWidth={on ? 2.5 : 1.8}
                   strokeDasharray={e.dashed ? "6 4" : undefined}
-                  markerEnd={e.directed === false ? undefined : `url(#${markerFor(e.color)})`}
+                  markerStart={e.directed === false ? `url(#${markerFor(e.color)})` : undefined}
+                  markerEnd={`url(#${markerFor(e.color)})`}
                   style={{ filter: `drop-shadow(0 0 ${on ? 7 : 4}px ${color}${on ? "aa" : "66"})` }}
                 />
                 {e.label ? (

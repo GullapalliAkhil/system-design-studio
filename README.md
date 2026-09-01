@@ -31,8 +31,8 @@ You read them off the canvas instead of memorizing them.
   No seeded placeholder text.
 - **Free text anywhere** — double-click bare canvas and type, right where you're
   pointing. No text box to place first.
-- **Directed and undirected connections** — arrowheads for flow, plain links for peer
-  relationships, switchable per edge or as the default for new ones.
+- **Directed and undirected connections** — one arrowhead for flow, a head at both ends
+  for two-way relationships, switchable per edge or as the default for new ones.
 - **A canvas document model** with nodes, edges, free text, shapes and freehand
   drawings — autosaved to `localStorage`, with undo/redo.
 - **A pitch-black canvas with a radiant palette** — true `#000` ground, no grid, and
@@ -55,9 +55,10 @@ done, hit <kbd>×</kbd> to remove it. Nothing is pre-filled.
 commits, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line, and double-clicking existing
 text reopens it in place. Empty text is discarded rather than left invisible.
 
-**Connections go both ways.** Press <kbd>E</kbd>, click a source then a target. The
-**Arrow** toggle in the toolbar sets whether new links get an arrowhead, and any edge
-can be switched between directed and undirected from the inspector.
+**Connections go both ways.** Press <kbd>E</kbd>, click a source then a target.
+Directed links carry a single arrowhead; undirected ones carry a head at both ends. The
+**Arrow** toggle in the toolbar sets the default for new links, and any edge can be
+switched from the inspector.
 
 | Key | Tool |
 | --- | --- |

@@ -145,7 +145,7 @@ export default function App() {
           <input type="checkbox" checked={curved} onChange={(e) => setCurved(e.target.checked)} />
           Curved
         </label>
-        <label className="toggle" title="Give new connections an arrowhead — off draws undirected links">
+        <label className="toggle" title="On: new links point one way. Off: undirected, arrows at both ends.">
           <input type="checkbox" checked={directed} onChange={(e) => setDirected(e.target.checked)} />
           Arrow
         </label>
