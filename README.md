@@ -24,10 +24,11 @@ You read them off the canvas instead of memorizing them.
 
 ## What's in the box
 
-- **42 concept components** across 8 categories — Clients, Edge & Network, Compute,
+- **38 concept components** across 8 categories — Clients, Edge & Network, Compute,
   Data Stores, Caching, Messaging, Search & Analytics, Platform Services.
 - **28 brand logos** (Postgres, Redis, Kafka, S3, Kubernetes, Stripe, …) so you can go
-  from "a cache" to "Redis" in one click.
+  from "a cache" to "Redis" in one click. 66 entries in all, every one distinct — no
+  type or display name appears twice.
 - **Requirement checklists** — functional and non-functional, in a drawer on the right.
   Everything in them is yours: type it, press Enter, tick it off, rename it, delete it.
   No seeded placeholder text.
@@ -143,11 +144,10 @@ which is what makes saved documents safe to load across versions.
   updater. StrictMode double-invokes updaters in development, which would push each
   action onto the undo stack twice. Moving those ref writes out of the updater would let
   StrictMode go back on.
-- **Three types are both a concept and a brand** — `redis`, `kafka` and `zookeeper`.
-  `<Icon>` checks `LOGOS` before `ICON`, so the generic `G.redis` / `G.kafka` /
-  `G.zookeeper` marks are unreachable and the "Cache (generic)", "Event Log" and
-  "Service Discovery" items draw as brand logos. The palette collapses each pair into a
-  single cell. A clean fix is to rename either side of the collision.
+- **Three generic icons are unreachable.** `ICON.redis`, `ICON.kafka` and
+  `ICON.zookeeper` are shadowed by the brand logos of the same key, because `<Icon>`
+  checks `LOGOS` first. The catalog no longer references them, so they are dead weight
+  in `icons.jsx` rather than a visible bug.
 
 ## License
 

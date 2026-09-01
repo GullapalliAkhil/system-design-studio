@@ -3,9 +3,9 @@ import { CATEGORIES, TYPE_INDEX } from "../catalog.js";
 import { Icon } from "../icons.jsx";
 
 /* Flatten a category into concept icons followed by its brand logos.
-   Three types (redis, kafka, zookeeper) exist as both a concept item and a
-   brand. Keyed by type so those collapse to one cell instead of colliding —
-   the brand wins, matching what <Icon> actually draws for a shared key. */
+   Keyed by type as a guard: the catalog holds no duplicates today, and keying
+   here means a future one collapses to a single cell rather than silently
+   colliding React keys and rendering the same component twice. */
 function entriesFor(cat) {
   const byType = new Map();
   for (const it of cat.items) {

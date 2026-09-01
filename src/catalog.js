@@ -40,7 +40,6 @@ export const CATEGORIES = [
       { type: "microservice", name: "Microservice", hint: "Own DB per service. Costs you distributed transactions — use sagas / outbox." },
       { type: "serverless", name: "Lambda / FaaS", hint: "Great for spiky, event-driven work. Watch cold starts and execution limits." },
       { type: "container", name: "Container", hint: "Immutable deploy unit. Same image dev → prod." },
-      { type: "k8s", name: "Kubernetes", hint: "Scheduling, self-healing, HPA autoscaling, rolling deploys." },
       { type: "cron", name: "Scheduler / Cron", hint: "Periodic jobs. Needs leader election so it fires once, not once per replica." },
     ],
     brands: ["docker", "kubernetes", "nodejs", "lambda"],
@@ -63,7 +62,6 @@ export const CATEGORIES = [
     name: "Caching",
     color: T.red,
     items: [
-      { type: "redis", name: "Cache (generic)", hint: "Cache-aside is the default. Pick TTL + eviction (LRU). Name the invalidation strategy." },
       { type: "cache", name: "Edge / Local Cache", hint: "Browser, CDN and in-process caches all count — cheapest hit is the one you never make." },
     ],
     brands: ["redis", "memcached"],
@@ -73,7 +71,6 @@ export const CATEGORIES = [
     color: T.pink,
     items: [
       { type: "msgqueue", name: "Message Queue", hint: "Decouples producer/consumer, absorbs spikes. At-least-once → consumers must be idempotent." },
-      { type: "kafka", name: "Event Log", hint: "Durable partitioned log, replayable, ordered per partition." },
       { type: "pubsub", name: "Pub/Sub", hint: "One event, many independent subscribers. Fan-out without coupling." },
       { type: "websocket", name: "WebSocket Server", hint: "Persistent bidirectional connections. Stateful → sticky routing + a connection registry." },
     ],
@@ -102,13 +99,14 @@ export const CATEGORIES = [
       { type: "geo", name: "Geo / Location", hint: "Geohash or QuadTree indexing for 'near me' queries. Redis GEO for the hot set." },
       { type: "video", name: "Media / Transcode", hint: "Async worker pool per resolution. Chunked upload, HLS/DASH manifests, serve via CDN." },
       { type: "monitor", name: "Monitoring", hint: "Metrics + alerts on SLOs. Four golden signals: latency, traffic, errors, saturation." },
-      { type: "zookeeper", name: "Service Discovery", hint: "Registry + config + leader election." },
     ],
     brands: ["stripe", "prometheus", "grafana", "zookeeper"],
   },
 ];
 
-/** type -> { name, color, hint, category, brand? } for both concept icons and logos. */
+/** type -> { name, color, hint, category, brand? } for both concept icons and logos.
+    Every type appears exactly once: no concept shares a key or a display name
+    with a brand, so nothing gets shadowed here or duplicated in the palette. */
 export const TYPE_INDEX = {};
 for (const cat of CATEGORIES) {
   for (const it of cat.items) {
@@ -117,8 +115,7 @@ for (const cat of CATEGORIES) {
   for (const b of cat.brands || []) {
     const logo = LOGOS[b];
     if (!logo) continue;
-    // A brand key can repeat across categories (e.g. redis); first one wins.
-    if (!TYPE_INDEX[b] || TYPE_INDEX[b].brand === false) {
+    if (!TYPE_INDEX[b]) {
       TYPE_INDEX[b] = {
         type: b,
         name: logo.name,
