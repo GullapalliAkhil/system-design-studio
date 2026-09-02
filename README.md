@@ -105,6 +105,10 @@ There is no backend. A design autosaves to `localStorage`, which means it is per
 and per-device: your work survives a refresh, but it does not follow you to another
 machine and nothing is shared between visitors.
 
+See [architecture.md](architecture.md) for how the pieces fit together — the document
+model, state ownership, the two coordinate systems, and why the input handling looks the
+way it does.
+
 ## Layout
 
 ```
