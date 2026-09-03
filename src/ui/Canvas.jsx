@@ -4,8 +4,10 @@ import { TYPE_INDEX } from "../catalog.js";
 import { T, PALETTE } from "../theme.js";
 import {
   clamp,
+  containsBox,
   edgeGeometry,
   pointOnEdge,
+  pointsBounds,
   simplify,
   snapTo,
   strokePath,
@@ -15,6 +17,11 @@ import {
 
 const MIN_K = 0.15;
 const MAX_K = 4;
+
+/* How far the parts of the diagram the request has not reached fall back
+   during a run. Low enough to read as background, high enough to still see
+   the shape of what is coming. */
+const DIM = 0.2;
 
 /* One marker per palette colour — SVG markers can't inherit `stroke`. */
 const MARKERS = PALETTE.map((c, i) => ({ id: `arw${i}`, color: c }));
@@ -199,6 +206,29 @@ export default function Canvas({
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
 
+  /* Everything a group box carries, keyed by id for cheap lookup during the
+     drag. Captured once on pointer-down so the set cannot change mid-gesture —
+     items are never picked up or dropped as the box sweeps across them. */
+  function contentsOf(box) {
+    const holds = containsBox(box);
+    const at = (list) => Object.fromEntries(list.map((it) => [it.id, { x: it.x, y: it.y }]));
+    return {
+      nodes: at(doc.nodes.filter((n) => holds(n.x, n.y, n.w, n.h))),
+      // A box never carries itself, and nested boxes come along whole.
+      shapes: at(doc.shapes.filter((s) => s.id !== box.id && holds(s.x, s.y, s.w, s.h))),
+      // Text hangs off its baseline anchor, so that point is the honest test.
+      texts: at(doc.texts.filter((t) => holds(t.x, t.y))),
+      drawings: Object.fromEntries(
+        doc.drawings
+          .filter((d) => {
+            const b = pointsBounds(d.points);
+            return b && holds(b.x, b.y, b.w, b.h);
+          })
+          .map((d) => [d.id, d.points])
+      ),
+    };
+  }
+
   function onItemDown(e, kind, item) {
     e.stopPropagation();
     if (tool === "edge") {
@@ -214,7 +244,18 @@ export default function Canvas({
     setSel({ kind, id: item.id });
     const p = toWorld(e);
     snapshot();
-    drag.current = { kind: "item", listKey: `${kind}s`, id: item.id, dx: p.x - item.x, dy: p.y - item.y };
+    drag.current = {
+      kind: "item",
+      listKey: `${kind}s`,
+      id: item.id,
+      dx: p.x - item.x,
+      dy: p.y - item.y,
+      // Where the box started, so contents can be offset from their own
+      // originals rather than accumulating rounding each pointer event.
+      ox: item.x,
+      oy: item.y,
+      held: kind === "shape" ? contentsOf(item) : null,
+    };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
 
@@ -236,10 +277,36 @@ export default function Canvas({
     } else if (d.kind === "item") {
       const x = snapTo(p.x - d.dx, snap);
       const y = snapTo(p.y - d.dy, snap);
-      update(
-        (doc) => ({ [d.listKey]: doc[d.listKey].map((it) => (it.id === d.id ? { ...it, x, y } : it)) }),
-        false
-      );
+      if (!d.held) {
+        update(
+          (doc) => ({ [d.listKey]: doc[d.listKey].map((it) => (it.id === d.id ? { ...it, x, y } : it)) }),
+          false
+        );
+      } else {
+        /* A group box drags its contents with it. They follow the distance the
+           box actually travelled — measured after snapping — so nothing inside
+           drifts out of place relative to the box. */
+        const mx = x - d.ox;
+        const my = y - d.oy;
+        const move = (list, held) =>
+          list.map((it) => {
+            if (it.id === d.id) return { ...it, x, y };
+            const o = held[it.id];
+            return o ? { ...it, x: o.x + mx, y: o.y + my } : it;
+          });
+        update(
+          (doc) => ({
+            shapes: move(doc.shapes, d.held.shapes),
+            nodes: move(doc.nodes, d.held.nodes),
+            texts: move(doc.texts, d.held.texts),
+            drawings: doc.drawings.map((dr) => {
+              const pts = d.held.drawings[dr.id];
+              return pts ? { ...dr, points: pts.map(([px, py]) => [px + mx, py + my]) } : dr;
+            }),
+          }),
+          false
+        );
+      }
     } else if (d.kind === "shape") {
       setDraft((s) => ({
         ...s,
@@ -305,6 +372,25 @@ export default function Canvas({
     return 0;
   }
 
+  /* During a run the diagram recedes to just the request: the route it has
+     travelled stays lit, the rest dims back. This is opacity only — faded
+     parts still take clicks, so the diagram stays editable while a run plays,
+     and anything selected stays legible. */
+  const dimOf = (lit, held) => (!live || lit || held ? 1 : DIM);
+
+  /* Connections the request has finished crossing. They stay at full strength
+     for the rest of the run, so the path builds up behind the request instead
+     of vanishing once it has moved on. */
+  const crossed = new Set();
+  if (live) {
+    const settled = live.done ? live.total : live.index;
+    for (let i = 0; i < settled; i++) crossed.add(live.hops[i].edgeId);
+  }
+
+  /* A box is on the request's path once it has been reached, or while the
+     current hop is crossing to or from it. */
+  const onPath = (id) => live && (hop.from === id || hop.to === id || fillOf(id) > 0);
+
   // Stores and caches hold content, so they fill like a vessel.
   const holdsContent = (type) => {
     const cat = TYPE_INDEX[type]?.category;
@@ -362,6 +448,8 @@ export default function Canvas({
             return (
             <g
               key={s.id}
+              className="flow-fade"
+              opacity={dimOf(onPath(s.id), on || armed)}
               onPointerDown={(e) => onItemDown(e, "shape", s)}
               style={{ cursor: tool === "edge" ? "crosshair" : "move" }}
             >
@@ -430,12 +518,20 @@ export default function Canvas({
             if (!a || !b) return null; // endpoint deleted
             const g = edgeGeometry(a, b, curved);
             const on = isSel("edge", e.id);
-            const color = on ? T.accent : e.color;
-            const lit = !live || e.id === hop.edgeId;
+            const isHop = live && e.id === hop.edgeId;
+            const behind = live && crossed.has(e.id);
+            /* Three states, brightest last: not yet reached, already crossed,
+               being crossed right now. The route the request has taken keeps
+               the accent so it reads as a trail rather than fading away. */
+            const color = on || isHop || behind ? T.accent : e.color;
+            const weight = isHop ? 3 : on ? 2.5 : behind ? 2.2 : 1.8;
+            const blur = isHop ? 10 : behind || on ? 7 : 4;
+            const halo = isHop ? "dd" : on ? "aa" : behind ? "99" : "66";
             return (
               <g
                 key={e.id}
-                opacity={lit ? 1 : 0.15}
+                className="flow-fade"
+                opacity={dimOf(isHop || behind, on)}
                 onPointerDown={(ev) => {
                   ev.stopPropagation();
                   if (tool === "select") setSel({ kind: "edge", id: e.id });
@@ -451,12 +547,29 @@ export default function Canvas({
                   d={g.d}
                   fill="none"
                   stroke={color}
-                  strokeWidth={on ? 2.5 : 1.8}
+                  strokeWidth={weight}
                   strokeDasharray={e.dashed ? "6 4" : undefined}
-                  markerStart={e.directed === false ? `url(#${markerFor(e.color)})` : undefined}
-                  markerEnd={`url(#${markerFor(e.color)})`}
-                  style={{ filter: `drop-shadow(0 0 ${on ? 7 : 4}px ${color}${on ? "aa" : "66"})` }}
+                  markerStart={e.directed === false ? `url(#${markerFor(color)})` : undefined}
+                  markerEnd={`url(#${markerFor(color)})`}
+                  style={{ filter: `drop-shadow(0 0 ${blur}px ${color}${halo})` }}
                 />
+                {/* Pulses of light run along the hop being crossed, in the
+                    direction of travel — which is not always the direction the
+                    edge was drawn, so undirected links run the animation
+                    backwards. Near-white, since accent over accent vanishes. */}
+                {isHop ? (
+                  <path
+                    className={`flow-march${hop.from === e.from ? "" : " rev"}`}
+                    d={g.d}
+                    fill="none"
+                    stroke={T.text}
+                    strokeOpacity="0.85"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeDasharray="7 17"
+                    pointerEvents="none"
+                  />
+                ) : null}
                 {e.label ? (
                   <>
                     <rect
@@ -485,13 +598,16 @@ export default function Canvas({
             const on = isSel("node", n.id);
             const armed = pending === n.id;
             const fill = fillOf(n.id);
-            const touched = live && (hop.to === n.id || hop.from === n.id);
+            // The request's current destination gets a ring; everything the
+            // request has not reached dims back behind it.
+            const arriving = live && hop.to === n.id;
             return (
               <g
                 key={n.id}
+                className="flow-fade"
+                opacity={dimOf(onPath(n.id), on || armed)}
                 onPointerDown={(e) => onNodeDown(e, n)}
                 style={{ cursor: tool === "edge" ? "crosshair" : "move" }}
-                opacity={!live || fill > 0 || touched ? 1 : 0.28}
               >
                 <rect
                   x={n.x}
@@ -500,15 +616,33 @@ export default function Canvas({
                   height={n.h}
                   rx="12"
                   fill={T.surface2}
-                  stroke={on || armed ? T.accent : color}
-                  strokeWidth={on || armed ? 2 : 1.4}
+                  stroke={on || armed || arriving ? T.accent : color}
+                  strokeWidth={on || armed || arriving ? 2 : 1.4}
                   strokeDasharray={armed ? "5 3" : undefined}
                   style={{
-                    filter: `drop-shadow(0 0 ${on || armed ? 14 : 7}px ${
-                      on || armed ? T.accent : color
-                    }${on || armed ? "cc" : "55"})`,
+                    filter: `drop-shadow(0 0 ${on || armed || arriving ? 14 : 7}px ${
+                      on || armed || arriving ? T.accent : color
+                    }${on || armed || arriving ? "cc" : "55"})`,
                   }}
                 />
+                {/* A ring pings outward off whatever the request is landing on,
+                    so the destination announces itself before the token gets
+                    there. Purely decorative, hence no pointer events. */}
+                {arriving ? (
+                  <rect
+                    className="flow-ping"
+                    x={n.x}
+                    y={n.y}
+                    width={n.w}
+                    height={n.h}
+                    rx="12"
+                    fill="none"
+                    stroke={T.accent}
+                    strokeWidth="1.5"
+                    pointerEvents="none"
+                  />
+                ) : null}
+
                 {/* Faint wash of the component's own colour so it reads as lit;
                     it deepens as the request charges this component. */}
                 <rect

@@ -136,6 +136,44 @@ export function contentBounds(doc, padding = 60) {
   };
 }
 
+/** Bounding box of a freehand stroke, or null if it has no points. */
+export function pointsBounds(points) {
+  if (!points || !points.length) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of points) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+/**
+ * Builds a "sits entirely inside `box`" test.
+ *
+ * Group boxes carry what they visually contain, so containment follows the
+ * drawn outline rather than the bounding rect: an ellipse checks all four
+ * corners against the ellipse itself, otherwise anything tucked into the
+ * corners of its bounding box would come along despite sitting outside it.
+ */
+export function containsBox(box) {
+  if (box.kind === "ellipse") {
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    const rx = box.w / 2;
+    const ry = box.h / 2;
+    const has = (x, y) => rx > 0 && ry > 0 && ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+    return (x, y, w = 0, h = 0) =>
+      has(x, y) && has(x + w, y) && has(x, y + h) && has(x + w, y + h);
+  }
+  return (x, y, w = 0, h = 0) =>
+    x >= box.x && y >= box.y && x + w <= box.x + box.w && y + h <= box.y + box.h;
+}
+
 /** Douglas–Peucker-lite: drop points that sit almost on the previous segment. */
 export function simplify(points, tolerance = 1.2) {
   if (points.length < 3) return points;

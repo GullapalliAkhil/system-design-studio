@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { clamp } from "./geometry.js";
 
 /** Milliseconds a request spends crossing one connection at 1x. */
 export const HOP_MS = 950;
@@ -76,7 +77,7 @@ export function useFlow(hops, active) {
   // Mirrors `pos` so the animation frame can advance without reading state.
   const posRef = useRef(0);
   const raf = useRef(0);
-  const last = useRef(0);
+  const last = useRef(null);
 
   const seek = useCallback((v) => {
     posRef.current = v;
@@ -91,11 +92,14 @@ export function useFlow(hops, active) {
 
   useEffect(() => {
     if (!active || !playing || !total) return;
-    last.current = performance.now();
+    // Seeded from the first frame rather than performance.now(): rAF reports the
+    // frame's start time, which can sit just behind a clock read taken here, and
+    // that negative first delta used to walk `pos` off the front of the run.
+    last.current = null;
     const tick = (now) => {
-      const dt = now - last.current;
+      const dt = last.current === null ? 0 : now - last.current;
       last.current = now;
-      const next = Math.min(posRef.current + (dt / HOP_MS) * speed, total);
+      const next = clamp(posRef.current + (dt / HOP_MS) * speed, 0, total);
       seek(next);
       if (next >= total) {
         setPlaying(false);
@@ -108,7 +112,9 @@ export function useFlow(hops, active) {
   }, [active, playing, speed, total, seek]);
 
   const done = total > 0 && pos >= total;
-  const index = total ? Math.min(Math.floor(pos), total - 1) : 0;
+  // Always a real hop while there is anything to walk — every consumer reads
+  // hops[index] directly, so this is the invariant that keeps them safe.
+  const index = total ? clamp(Math.floor(pos), 0, total - 1) : 0;
   const progress = done ? 1 : pos - Math.floor(pos);
 
   const play = useCallback(() => {

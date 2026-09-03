@@ -80,14 +80,10 @@ export default function App() {
     setSel(null);
   }
 
+  // An overlay, not a mode: the diagram stays live and editable while a
+  // request plays over it, so you can check the design and the flow together.
   function toggleFlow() {
-    setFlowOn((on) => {
-      if (!on) {
-        setTool("select"); // editing gestures would fight the walkthrough
-        setSel(null);
-      }
-      return !on;
-    });
+    setFlowOn((on) => !on);
   }
 
   function zoomToFit() {
