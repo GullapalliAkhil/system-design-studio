@@ -37,6 +37,10 @@ You read them off the canvas instead of memorizing them.
 - **Directed and undirected connections** — one arrowhead for flow, a head at both ends
   for two-way relationships, switchable per edge or as the default for new ones. Any
   boxed thing can be an endpoint: components, group boxes and ellipses alike.
+- **A request walkthrough** — press **Flow** and watch a request travel the design hop by
+  hop, with play, pause, step and speed. Components light up as it reaches them, and
+  databases and caches visibly fill with what was written to them. Derived from the
+  diagram, so there is nothing extra to author.
 - **A canvas document model** with nodes, edges, free text, shapes and freehand
   drawings — autosaved to `localStorage`, with undo/redo.
 - **A pitch-black canvas with a radiant palette** — true `#000` ground, no grid, and
@@ -74,6 +78,8 @@ draw inside.
 | `T` | Text |
 | `R` / `O` | Group box / ellipse |
 | `P` | Freehand pen |
+| `F` | Flow — replay a request through the design |
+| `Space` / `←` `→` | Play-pause / step, while a flow is running |
 | `⌘Z` / `⇧⌘Z` | Undo / redo |
 | `Delete` | Delete selection |
 | `Esc` | Deselect, back to the select tool |

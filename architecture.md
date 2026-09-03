@@ -49,6 +49,8 @@ flowchart TD
 
   App --> doc[lib/doc.js]
   App --> geo[lib/geometry.js]
+  App --> flow[lib/flow.js]
+  App --> FlowBar
   Canvas --> doc
   Canvas --> geo
   Requirements --> doc
@@ -71,6 +73,8 @@ flowchart TD
 | `ui/Canvas.jsx` | The SVG surface and every pointer gesture on it. The largest file, and the only one with real interaction logic. |
 | `ui/Inspector.jsx` | Right panel. Properties for the current selection, or the design brief. |
 | `ui/Requirements.jsx` | Collapsible FR/NFR checklists, rendered inside the Inspector. |
+| `ui/FlowBar.jsx` | Transport controls for the request walkthrough. |
+| `lib/flow.js` | Turns the diagram into an ordered list of hops, and drives playback. |
 | `catalog.js` | The component library: 38 concepts + 27 brands, and `TYPE_INDEX` for lookup by type. |
 | `icons.jsx` / `logos.jsx` | SVG marks. `<Icon>` resolves a type to either a brand logo or a generic icon. |
 | `theme.js` | Design tokens. Single source of truth for colour, shared by the SVG canvas and the CSS chrome. |
@@ -341,6 +345,67 @@ GitHub's first-party Pages actions using OIDC — no deploy branch, no tokens.
 ---
 
 ## 11. Decisions worth knowing
+
+## 12. The request walkthrough
+
+Pressing **Flow** replays a request travelling through the design. It is derived
+entirely from the diagram — there is nothing extra to author and nothing stored in the
+document.
+
+`buildFlow(doc)` turns the graph into an ordered list of hops:
+
+- **Entry point** is a box nothing else points at — the client edge of the system.
+  Falls back to the first drawn edge when everything sits in a cycle.
+- **Breadth-first** from there, so the walkthrough follows the request outward: client
+  first, then what it reaches, then the tier behind that.
+- **Undirected edges are traversable both ways**; directed ones only forward.
+- Each edge is walked once. Disconnected clusters are appended in drawing order so
+  nothing silently vanishes from the run.
+
+Each hop is `{ edgeId, from, to }`, where `from`/`to` are the **direction of travel** —
+not necessarily the direction the edge was drawn, since an undirected edge can be crossed
+either way.
+
+### One number drives playback
+
+`useFlow` keeps a single float `pos` in `[0, hops.length]`:
+
+```
+pos = 2.4   ->   hop index 2, 40% of the way across it
+```
+
+The integer part is the current hop, the fraction is progress along it. Stepping,
+scrubbing and playing all write to the same number, so they can't disagree — which is
+the failure mode you get from keeping `index` and `progress` as separate state.
+
+A `requestAnimationFrame` loop advances `pos` by `dt / HOP_MS * speed`. The loop reads
+from a ref rather than state so it never depends on a stale closure, and it stops
+scheduling itself at the end rather than spinning.
+
+### Drawing the request
+
+`pointOnEdge(geo, t)` in `geometry.js` evaluates the position along an edge — a lerp for
+straight ones, the cubic Bézier for curved. That is why `edgeGeometry` now returns its
+control points `c1`/`c2`: they were computed already and only used for the `d` string.
+Evaluating the curve directly avoids measuring the rendered path with
+`getPointAtLength()` on every frame.
+
+While a run is active the canvas re-reads three things per frame:
+
+| What | How |
+| --- | --- |
+| Which edge is lit | everything but the current `edgeId` drops to 15% opacity |
+| How full a component is | `fillOf(id)` — the entry point starts full; anything already reached is full; the current destination fills as the token crosses toward it |
+| Where the request is | `pointOnEdge` at the hop's progress |
+
+`fillOf` is what makes a database *look* like it received something: the colour wash
+deepens, and stores and caches additionally fill from the bottom like a vessel, clipped
+to the node's rounded rectangle. Which components do that is data-driven — anything whose
+`TYPE_INDEX` category is `Data Stores` or `Caching`.
+
+---
+
+## 13. Decisions worth knowing
 
 **SVG, not Canvas 2D.** Every element stays in the DOM, so hit-testing, hover cursors and
 accessibility come free. The cost is that a very large diagram means a very large DOM;

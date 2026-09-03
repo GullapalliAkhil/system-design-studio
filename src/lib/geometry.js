@@ -48,12 +48,37 @@ export function edgeGeometry(a, b, curved) {
   return {
     from,
     to,
+    // Exposed so callers can walk the curve, not just draw it.
+    c1,
+    c2,
     d: `M${from.x},${from.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${to.x},${to.y}`,
     // Cubic Bézier evaluated at t = 0.5.
     mid: {
       x: (from.x + 3 * c1.x + 3 * c2.x + to.x) / 8,
       y: (from.y + 3 * c1.y + 3 * c2.y + to.y) / 8,
     },
+  };
+}
+
+/**
+ * Point at t ∈ [0,1] along an edge produced by edgeGeometry().
+ * Straight edges lerp; curved ones evaluate the cubic Bézier directly, which
+ * avoids measuring the rendered path with getPointAtLength() every frame.
+ */
+export function pointOnEdge(geo, t) {
+  const { from, to, c1, c2 } = geo;
+  const u = clamp(t, 0, 1);
+  if (!c1 || !c2) {
+    return { x: from.x + (to.x - from.x) * u, y: from.y + (to.y - from.y) * u };
+  }
+  const v = 1 - u;
+  const b0 = v * v * v;
+  const b1 = 3 * v * v * u;
+  const b2 = 3 * v * u * u;
+  const b3 = u * u * u;
+  return {
+    x: b0 * from.x + b1 * c1.x + b2 * c2.x + b3 * to.x,
+    y: b0 * from.y + b1 * c1.y + b2 * c2.y + b3 * to.y,
   };
 }
 

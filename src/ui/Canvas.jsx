@@ -2,7 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons.jsx";
 import { TYPE_INDEX } from "../catalog.js";
 import { T, PALETTE } from "../theme.js";
-import { clamp, edgeGeometry, simplify, snapTo, strokePath, uid, wrapText } from "../lib/geometry.js";
+import {
+  clamp,
+  edgeGeometry,
+  pointOnEdge,
+  simplify,
+  snapTo,
+  strokePath,
+  uid,
+  wrapText,
+} from "../lib/geometry.js";
 
 const MIN_K = 0.15;
 const MAX_K = 4;
@@ -25,6 +34,7 @@ export default function Canvas({
   snap,
   curved,
   directed,
+  flow,
 }) {
   const drag = useRef(null);
   const inputRef = useRef(null);
@@ -280,6 +290,36 @@ export default function Canvas({
   const isSel = (kind, id) => sel && sel.kind === kind && sel.id === id;
   const editingText = doc.texts.find((t) => t.id === editing) || null;
 
+  /* ── Request walkthrough ─────────────────────────── */
+  const live = flow && flow.total ? flow : null;
+  const hop = live ? live.hops[live.index] : null;
+
+  /* How full a component is: it charges as the request lands on it and stays
+     full, so a database visibly holds what was written to it. */
+  function fillOf(id) {
+    if (!live) return 0;
+    if (live.hops[0].from === id) return 1; // the request starts here
+    const settled = live.done ? live.total : live.index;
+    for (let i = 0; i < settled; i++) if (live.hops[i].to === id) return 1;
+    if (!live.done && hop.to === id) return live.progress;
+    return 0;
+  }
+
+  // Stores and caches hold content, so they fill like a vessel.
+  const holdsContent = (type) => {
+    const cat = TYPE_INDEX[type]?.category;
+    return cat === "Data Stores" || cat === "Caching";
+  };
+
+  const token = hop
+    ? (() => {
+        const a = boxById[hop.from];
+        const b = boxById[hop.to];
+        if (!a || !b) return null;
+        return pointOnEdge(edgeGeometry(a, b, curved), live.done ? 1 : live.progress);
+      })()
+    : null;
+
   return (
     <>
       <svg
@@ -391,9 +431,11 @@ export default function Canvas({
             const g = edgeGeometry(a, b, curved);
             const on = isSel("edge", e.id);
             const color = on ? T.accent : e.color;
+            const lit = !live || e.id === hop.edgeId;
             return (
               <g
                 key={e.id}
+                opacity={lit ? 1 : 0.15}
                 onPointerDown={(ev) => {
                   ev.stopPropagation();
                   if (tool === "select") setSel({ kind: "edge", id: e.id });
@@ -442,11 +484,14 @@ export default function Canvas({
             const lines = wrapText(label, n.w - 14, 11, 2);
             const on = isSel("node", n.id);
             const armed = pending === n.id;
+            const fill = fillOf(n.id);
+            const touched = live && (hop.to === n.id || hop.from === n.id);
             return (
               <g
                 key={n.id}
                 onPointerDown={(e) => onNodeDown(e, n)}
                 style={{ cursor: tool === "edge" ? "crosshair" : "move" }}
+                opacity={!live || fill > 0 || touched ? 1 : 0.28}
               >
                 <rect
                   x={n.x}
@@ -464,7 +509,8 @@ export default function Canvas({
                     }${on || armed ? "cc" : "55"})`,
                   }}
                 />
-                {/* Faint wash of the component's own colour so it reads as lit. */}
+                {/* Faint wash of the component's own colour so it reads as lit;
+                    it deepens as the request charges this component. */}
                 <rect
                   x={n.x}
                   y={n.y}
@@ -472,9 +518,36 @@ export default function Canvas({
                   height={n.h}
                   rx="12"
                   fill={color}
-                  opacity="0.07"
+                  opacity={0.07 + fill * 0.24}
                   pointerEvents="none"
                 />
+
+                {/* Stores fill from the bottom, like content landing in them. */}
+                {fill > 0 && holdsContent(n.type) ? (
+                  <>
+                    <clipPath id={`hold-${n.id}`}>
+                      <rect x={n.x} y={n.y} width={n.w} height={n.h} rx="12" />
+                    </clipPath>
+                    <g clipPath={`url(#hold-${n.id})`} pointerEvents="none">
+                      <rect
+                        x={n.x}
+                        y={n.y + n.h - n.h * fill}
+                        width={n.w}
+                        height={n.h * fill}
+                        fill={color}
+                        opacity="0.3"
+                      />
+                      <rect
+                        x={n.x}
+                        y={n.y + n.h - n.h * fill}
+                        width={n.w}
+                        height="2"
+                        fill={color}
+                        opacity="0.9"
+                      />
+                    </g>
+                  </>
+                ) : null}
                 <Icon type={n.type} color={color} x={n.x + (n.w - 36) / 2} y={n.y + 11} size={36} />
                 {lines.map((ln, i) => (
                   <text
@@ -517,6 +590,21 @@ export default function Canvas({
                 ))}
             </text>
           ))}
+
+          {/* The request in transit. Drawn after the diagram so it reads as
+              travelling over it rather than being part of it. */}
+          {token ? (
+            <g pointerEvents="none">
+              <circle cx={token.x} cy={token.y} r="11" fill={T.accent} opacity="0.18" />
+              <circle
+                cx={token.x}
+                cy={token.y}
+                r="5"
+                fill={T.accent}
+                style={{ filter: `drop-shadow(0 0 9px ${T.accent})` }}
+              />
+            </g>
+          ) : null}
 
           {/* In-flight draft */}
           {draft && draft.kind === "rect" ? (

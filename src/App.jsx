@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Palette from "./ui/Palette.jsx";
 import Canvas from "./ui/Canvas.jsx";
 import Inspector from "./ui/Inspector.jsx";
+import FlowBar from "./ui/FlowBar.jsx";
 import { TYPE_INDEX } from "./catalog.js";
 import { T } from "./theme.js";
 import { emptyDoc, loadDoc, saveDoc, useDoc } from "./lib/doc.js";
 import { NODE_H, NODE_W, clamp, contentBounds, snapTo, uid } from "./lib/geometry.js";
+import { buildFlow, useFlow } from "./lib/flow.js";
 
 const TOOLS = [
   { id: "select", key: "v", glyph: "↖", title: "Select / move (V)" },
@@ -27,6 +29,16 @@ export default function App() {
   const [snap, setSnap] = useState(true);
   const [curved, setCurved] = useState(true);
   const [directed, setDirected] = useState(true); // default for newly drawn edges
+  const [flowOn, setFlowOn] = useState(false);
+
+  // The walkthrough is derived from the diagram, so it re-plans whenever the
+  // graph changes rather than being a second thing to keep in sync.
+  const hops = useMemo(() => buildFlow(doc), [doc]);
+  const flow = useFlow(hops, flowOn);
+  const boxById = useMemo(
+    () => Object.fromEntries([...doc.nodes, ...doc.shapes].map((b) => [b.id, b])),
+    [doc.nodes, doc.shapes]
+  );
 
   const svgRef = useRef(null);
 
@@ -68,6 +80,16 @@ export default function App() {
     setSel(null);
   }
 
+  function toggleFlow() {
+    setFlowOn((on) => {
+      if (!on) {
+        setTool("select"); // editing gestures would fight the walkthrough
+        setSel(null);
+      }
+      return !on;
+    });
+  }
+
   function zoomToFit() {
     const r = svgRef.current.getBoundingClientRect();
     const b = contentBounds(doc);
@@ -98,7 +120,32 @@ export default function App() {
         deleteSelection();
         return;
       }
+      if (e.key.toLowerCase() === "f" && !mod) {
+        toggleFlow();
+        return;
+      }
+      if (flowOn) {
+        if (e.key === " ") {
+          e.preventDefault();
+          flow.toggle();
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          flow.next();
+          return;
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          flow.prev();
+          return;
+        }
+      }
       if (e.key === "Escape") {
+        if (flowOn) {
+          setFlowOn(false);
+          return;
+        }
         setSel(null);
         setTool("select");
         return;
@@ -108,7 +155,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sel, doc, undo, redo]);
+  }, [sel, doc, undo, redo, flowOn, flow]);
 
   return (
     <div className="app">
@@ -153,6 +200,13 @@ export default function App() {
         </label>
 
         <div className="divider" />
+        <button
+          className={`btn${flowOn ? " active" : ""}`}
+          title="Watch a request travel the design (F)"
+          onClick={toggleFlow}
+        >
+          ⏱ Flow
+        </button>
         <button className="btn danger" onClick={clearAll}>
           Clear
         </button>
@@ -175,6 +229,7 @@ export default function App() {
           snap={snap}
           curved={curved}
           directed={directed}
+          flow={flowOn ? flow : null}
         />
 
         <div className="hud">
@@ -194,12 +249,14 @@ export default function App() {
           </button>
         </div>
 
-        {tool === "edge" ? (
+        {flowOn ? <FlowBar flow={flow} boxById={boxById} onExit={() => setFlowOn(false)} /> : null}
+
+        {!flowOn && tool === "edge" ? (
           <div className="hint-bar">
             Click the source component, then the target. <b>Esc</b> to cancel.
           </div>
         ) : null}
-        {tool === "select" && !doc.nodes.length && !doc.texts.length ? (
+        {!flowOn && tool === "select" && !doc.nodes.length && !doc.texts.length ? (
           <div className="hint-bar">
             Pick a component from the left — or <b>double-click anywhere</b> to write.
           </div>
